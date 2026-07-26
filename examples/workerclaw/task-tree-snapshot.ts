@@ -92,7 +92,7 @@ export function buildRoundBudgetContinueMessage(
   return [
     "Tool round budget reached but the task is not finished yet.",
     "",
-    "Keep going — use tools to unblock yourself (e2b_run_command, executeCommand, createPresentation, etc.).",
+    "Keep going — use tools to unblock yourself (shell, registered host tools, etc.).",
     "Do not call complete_task with status failed for recoverable tooling errors.",
     "Only call complete_task when the deliverable is ready (status completed) or you are truly blocked after trying alternatives.",
     "",
@@ -108,7 +108,7 @@ export function buildAutonomousContinueUserMessage(
     "Continue working on this task. You have not called complete_task yet.",
     "",
     "Use tools in this turn — do not reply with text-only plans.",
-    "Recover from errors with e2b_run_command or executeCommand; do not call complete_task failed for fixable tooling issues.",
+    "Recover from errors with shell or other registered tools; do not call complete_task failed for fixable tooling issues.",
     "When every TODO leaf is done and deliverables are reported, call complete_task.",
     'If you are blocked after exhausting alternatives, call complete_task with status "failed" and explain why.',
   ];

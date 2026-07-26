@@ -12,9 +12,9 @@ import type {
   TurnContext,
 } from "@exo/harness";
 
-// Durable agent-writable memory for WorkerClaw: one store per exo agent
-// (one Olivia worker). Persists across tasks/conversations. Stored as a JSON
-// artifact on the agent handle (same pattern as examples/exo).
+// Durable agent-writable memory for WorkerClaw: one store per exo agent.
+// Persists across tasks/conversations. Stored as a JSON artifact on the agent
+// handle (same pattern as examples/exo).
 const MEMORY_ARTIFACT_PATH = "memory/workerclaw-memory.json";
 // Soft caps so always-injecting memory cannot grow the prompt without bound.
 const MAX_ENTRIES = 200;

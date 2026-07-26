@@ -15,14 +15,31 @@ import {
  * assistant messages (text, then one message per tool_call). The Chat API
  * expects a single assistant message with all tool_calls, followed by tool
  * messages. We coalesce, then repair missing/orphan pairings before each call.
+ *
+ * Large tool results (screenshots / slide previews) are stored as conversation
+ * artifacts. Vision policy:
+ * - Trailing tool-result group (not yet followed by an assistant reply):
+ *   rehydrate once, attach real image parts, strip all base64 from the JSON.
+ * - Older history: never rehydrate artifacts; strip every base64 payload so the
+ *   model does not re-read the same image bytes on later rounds.
  */
+
+const IMAGE_BASE64_KEYS = new Set([
+  "screenshotBase64",
+  "imageBase64",
+  "base64",
+]);
+
+/** Strings longer than this that look like base64 are dropped from prompts. */
+const BASE64_STRIP_MIN_CHARS = 256;
 
 export async function materializeWorkerclawPromptMessages(
   conversation: Conversation,
   instructions: Message[],
 ): Promise<Message[]> {
   const history = await materializeWorkerclawConversationMessages(conversation);
-  return [...instructions, ...repairLinguaToolPairing(history)];
+  const withVision = await hydrateToolResultsForVision(conversation, history);
+  return [...instructions, ...repairLinguaToolPairing(withVision)];
 }
 
 export async function materializeWorkerclawConversationMessages(
@@ -33,6 +50,335 @@ export async function materializeWorkerclawConversationMessages(
     types: ["messages", "tool_requested", "tool_result"],
   });
   return materializeWorkerclawEventsToMessages(result.events);
+}
+
+/**
+ * Prepare tool results for the next model call.
+ *
+ * Fresh trailing tool results: rehydrate + attach images once.
+ * Historical tool results: strip base64 entirely; do not re-read artifacts.
+ */
+export async function hydrateToolResultsForVision(
+  conversation: Conversation,
+  messages: Message[],
+): Promise<Message[]> {
+  const out: Message[] = [];
+  const pendingImages: Array<{
+    toolName: string;
+    base64: string;
+    mediaType: string;
+    label?: string;
+  }> = [];
+  const latestToolIndices = findTrailingToolMessageIndices(messages);
+
+  const flushImages = () => {
+    for (const img of pendingImages) {
+      const label = img.label ? ` (${img.label})` : "";
+      out.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `Visual result of the previous \`${img.toolName}\` tool call${label}. ` +
+              `Inspect this image carefully — do not claim you can see it unless you use this attachment.`,
+          },
+          {
+            type: "image",
+            image: img.base64,
+            media_type: img.mediaType,
+          },
+        ],
+      });
+    }
+    pendingImages.length = 0;
+  };
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]!;
+    if (msg.role !== "tool" || !Array.isArray(msg.content)) {
+      flushImages();
+      out.push(msg);
+      continue;
+    }
+
+    const isLatestRound = latestToolIndices.has(i);
+    const newContent: unknown[] = [];
+    for (const part of msg.content) {
+      if (!part || typeof part !== "object") {
+        newContent.push(part);
+        continue;
+      }
+      const p = part as {
+        type?: string;
+        tool_call_id?: string;
+        tool_name?: string;
+        output?: unknown;
+      };
+      if (p.type !== "tool_result") {
+        newContent.push(part);
+        continue;
+      }
+
+      const toolName =
+        typeof p.tool_name === "string" && p.tool_name.trim()
+          ? p.tool_name
+          : "tool";
+
+      if (isLatestRound) {
+        const full = await resolveFullToolOutput(conversation, p.output);
+        const images = extractAllImagesFromToolOutput(full);
+        const slim = stripAllImagePayloads(full, {
+          omittedNote:
+            images.length > 0
+              ? "Image(s) attached as the next user message(s) for vision."
+              : undefined,
+        });
+        newContent.push({
+          ...p,
+          output: slim,
+        });
+        for (const image of images) {
+          pendingImages.push({
+            toolName,
+            base64: image.base64,
+            mediaType: image.mediaType,
+            label: image.label,
+          });
+        }
+      } else {
+        // Historical: never rehydrate full artifacts — strip whatever is inline.
+        newContent.push({
+          ...p,
+          output: stripToolOutputForHistory(p.output),
+        });
+      }
+    }
+
+    out.push({ role: "tool", content: newContent as Message["content"] });
+  }
+
+  flushImages();
+  return out;
+}
+
+/**
+ * Tool messages at the end of history (after skipping trailing user nudges)
+ * are the only ones that still need vision — the model has not replied yet.
+ */
+export function findTrailingToolMessageIndices(
+  messages: Message[],
+): Set<number> {
+  const indices = new Set<number>();
+  let i = messages.length - 1;
+  while (i >= 0 && messages[i]!.role === "user") {
+    i -= 1;
+  }
+  while (i >= 0 && messages[i]!.role === "tool") {
+    indices.add(i);
+    i -= 1;
+  }
+  return indices;
+}
+
+async function resolveFullToolOutput(
+  conversation: Conversation,
+  output: unknown,
+): Promise<unknown> {
+  if (!isRecord(output)) return output;
+
+  // Compact exo envelope: prefer artifact, then inline value.
+  const artifact = output.resultArtifact;
+  if (isRecord(artifact) && typeof artifact.artifactId === "string") {
+    try {
+      const text = await conversation.readArtifactText({
+        artifactId: artifact.artifactId,
+        version:
+          typeof artifact.version === "number" ? artifact.version : undefined,
+      });
+      if (text?.trim()) {
+        return JSON.parse(text) as unknown;
+      }
+    } catch (err) {
+      console.warn(
+        "[workerclaw] failed to rehydrate tool result artifact:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  if (output.value != null) return output.value;
+  return output;
+}
+
+/** Historical tool output: keep metadata, drop artifact rehydration + all base64. */
+export function stripToolOutputForHistory(output: unknown): unknown {
+  if (!isRecord(output)) {
+    return stripAllImagePayloads(output);
+  }
+
+  // Compact envelope from exo tool runner.
+  if (
+    output.resultArtifact != null ||
+    output.value != null ||
+    typeof output.preview === "string"
+  ) {
+    const value =
+      output.value != null
+        ? stripAllImagePayloads(output.value, {
+            omittedNote: "Image omitted (already shown in an earlier turn).",
+          })
+        : null;
+    const preview =
+      typeof output.preview === "string"
+        ? stripBase64FromString(output.preview)
+        : undefined;
+    return {
+      ok: output.ok,
+      toolName: output.toolName,
+      toolCallId: output.toolCallId,
+      source: output.source,
+      truncated: true,
+      preview,
+      value,
+      imageOmitted: true,
+      note: "Image payload omitted from history — already shown once to the model.",
+    };
+  }
+
+  return stripAllImagePayloads(output, {
+    omittedNote: "Image omitted (already shown in an earlier turn).",
+  });
+}
+
+export type ExtractedToolImage = {
+  base64: string;
+  mediaType: string;
+  label?: string;
+};
+
+/** Collect every image payload (top-level or nested, e.g. slides[].imageBase64). */
+export function extractAllImagesFromToolOutput(
+  output: unknown,
+): ExtractedToolImage[] {
+  const found: ExtractedToolImage[] = [];
+  walkForImages(output, found, "");
+  return found;
+}
+
+function walkForImages(
+  value: unknown,
+  found: ExtractedToolImage[],
+  path: string,
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, idx) => walkForImages(item, found, `${path}[${idx}]`));
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  for (const [key, child] of Object.entries(value)) {
+    if (IMAGE_BASE64_KEYS.has(key) && typeof child === "string") {
+      const parsed = parseBase64Image(child);
+      if (parsed) {
+        const slideNum =
+          typeof value.slideNumber === "number"
+            ? `slide ${value.slideNumber}`
+            : typeof value.slide === "string"
+              ? value.slide
+              : undefined;
+        found.push({
+          ...parsed,
+          label: slideNum ?? (path ? path : undefined),
+        });
+      }
+      continue;
+    }
+    walkForImages(child, found, path ? `${path}.${key}` : key);
+  }
+}
+
+/**
+ * Recursively delete image base64 fields and base64-looking strings.
+ * Does not truncate — removes the payload entirely.
+ */
+export function stripAllImagePayloads(
+  value: unknown,
+  opts?: { omittedNote?: string },
+): unknown {
+  if (typeof value === "string") {
+    return looksLikeBase64Payload(value) ? undefined : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => stripAllImagePayloads(item, opts));
+  }
+  if (!isRecord(value)) return value;
+
+  const out: Record<string, unknown> = {};
+  let omitted = false;
+  for (const [key, child] of Object.entries(value)) {
+    if (IMAGE_BASE64_KEYS.has(key) && typeof child === "string") {
+      omitted = true;
+      out[`${key}Omitted`] = true;
+      continue;
+    }
+    if (typeof child === "string" && looksLikeBase64Payload(child)) {
+      omitted = true;
+      continue;
+    }
+    const next = stripAllImagePayloads(child, opts);
+    if (next !== undefined) {
+      out[key] = next;
+    }
+  }
+  if (omitted) {
+    out.imageOmitted = true;
+    if (opts?.omittedNote && typeof out.note !== "string") {
+      out.note = opts.omittedNote;
+    }
+  }
+  return out;
+}
+
+function stripBase64FromString(text: string): string {
+  if (!looksLikeBase64Payload(text)) return text;
+  return "[image base64 omitted]";
+}
+
+function parseBase64Image(
+  raw: string,
+): { base64: string; mediaType: string } | null {
+  if (!raw || raw.length < 32) return null;
+  if (raw.includes("[truncated]") || raw.includes("[content truncated")) {
+    return null;
+  }
+  let base64 = raw.trim();
+  let mediaType = "image/jpeg";
+  if (base64.startsWith("data:")) {
+    const match = /^data:([^;]+);base64,/i.exec(base64);
+    if (!match) return null;
+    mediaType = match[1] || mediaType;
+    base64 = base64.slice(match[0].length);
+  }
+  base64 = base64.replace(/\s+/g, "");
+  if (base64.length < 32 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    return null;
+  }
+  if (base64.startsWith("iVBOR")) mediaType = "image/png";
+  return { base64, mediaType };
+}
+
+export function looksLikeBase64Payload(value: string): boolean {
+  if (value.length < BASE64_STRIP_MIN_CHARS) return false;
+  if (value.startsWith("data:") && value.includes("base64,")) return true;
+  const sample = value.slice(0, 512).replace(/\s+/g, "");
+  return (
+    sample.length >= BASE64_STRIP_MIN_CHARS && /^[A-Za-z0-9+/]+=*$/.test(sample)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export function materializeWorkerclawEventsToMessages(
@@ -118,7 +464,6 @@ function normalizeToolRoundPairing(messages: Message[]): Message[] {
       }
       j++;
     }
-    i = j - 1;
 
     for (const [id, name] of needed) {
       out.push(
@@ -130,6 +475,18 @@ function normalizeToolRoundPairing(messages: Message[]): Message[] {
       );
       synthesized++;
     }
+
+    // Preserve vision user messages that hydrateToolResultsForVision inserted
+    // immediately after a tool-result group (must stay after all tool results).
+    while (
+      j < messages.length &&
+      messages[j]!.role === "user" &&
+      isScreenshotVisionFollowUp(messages[j]!)
+    ) {
+      out.push(messages[j]!);
+      j++;
+    }
+    i = j - 1;
   }
 
   if (synthesized > 0 || dropped > 0) {
@@ -139,6 +496,16 @@ function normalizeToolRoundPairing(messages: Message[]): Message[] {
   }
 
   return out;
+}
+
+function isScreenshotVisionFollowUp(message: Message): boolean {
+  if (message.role !== "user" || !Array.isArray(message.content)) return false;
+  return message.content.some(
+    (part) =>
+      part &&
+      typeof part === "object" &&
+      (part as { type?: string }).type === "image",
+  );
 }
 
 function filterToolResultContent(
