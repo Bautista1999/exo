@@ -29,7 +29,7 @@ Use this map before changing WorkerClaw itself.
 WorkerClaw can grow capability without rebuilding itself:
 
 - **Memory** — short durable facts across jobs (`remember` / `forget`).
-- **Skills** — multi-step playbooks as agent artifacts (`install_skill` / `use_skill`). Distinct from Olivia onboarding methodology skills injected in the task briefing.
+- **Skills** — multi-step playbooks as agent artifacts (`install_skill` / `use_skill`). Distinct from any methodology skills a host may inject in the task briefing.
 - **Agent tools** — TypeScript helpers via `install_agent_tool` (when enabled).
 
 ## Task Tree

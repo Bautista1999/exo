@@ -86,7 +86,7 @@ export function agentToolCreationInstruction(): Message {
     content: [
       "install_agent_tool is available this turn. Use it when you need a named, reusable helper that you will call again (or that clarifies a multi-step workflow).",
       "Good triggers: wrapping an HTTP API with fetch, parsing/validating a recurring format, packaging a multi-command workflow into one tool, or bridging two platform tools with custom glue.",
-      "Prefer an existing Olivia catalog tool when it already does the job. Prefer e2b_run_command / shell for a true one-shot. Prefer install_agent_tool when the same logic would otherwise be copy-pasted across rounds.",
+      "Prefer an existing registered host tool when it already does the job. Prefer shell (or other command tools) for a true one-shot. Prefer install_agent_tool when the same logic would otherwise be copy-pasted across rounds.",
       "Call install_agent_tool with a complete TypeScript moduleSource. Do not claim success unless it returns ok: true. The new tool is available in the next model round of the same turn.",
       "moduleSource rules: type-only imports from @exo/harness/tool; default-export { definition, initializationParameters, initialize(...) } satisfies Tool; definition.parameters must be a strict JSON schema object with additionalProperties: false; handlers implement execute(args, execution) (not invoke/call); no zod, no external npm packages, no runtime imports from @exo/harness/tool.",
       "Use uninstall_agent_tool to remove obsolete or conflicting agent-created tools.",

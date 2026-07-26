@@ -201,7 +201,9 @@ function reportDeliverableTool(): ToolInstance {
   return localTool({
     name: "report_deliverable",
     description:
-      "Report a deliverable (URL, file, image, or text) for client delivery. Call when you produce output the client should receive.",
+      "Report a deliverable for client delivery. " +
+      'For files (PPTX, PDF, etc.): type="file" and url=<sandbox path> like /home/user/.../deck.pptx — the host may upload and deliver the file. ' +
+      'For live sites/repos: type="url" with the https link. For images: type="image" with a public https URL.',
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -237,7 +239,7 @@ function completeTaskTool(): ToolInstance {
       name: "complete_task",
       description:
         "Signal that the entire task is finished. Call only after every TODO leaf is completed and client deliverables are reported via report_deliverable. " +
-        "Do NOT call with status failed for recoverable errors (bad tool args, missing npm packages, compile retries) — fix them with e2b_run_command or executeCommand first.",
+        "Do NOT call with status failed for recoverable errors (bad tool args, missing npm packages, compile retries) — fix them with shell or other registered command tools first.",
       parameters: {
         type: "object",
         additionalProperties: false,

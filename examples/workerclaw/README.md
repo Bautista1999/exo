@@ -196,8 +196,8 @@ WorkerClaw registers tools in layers (`harness.ts`):
 
 **Host-injected modules:** anything registered on the agent with
 `--tool-module` / `toolModulePaths` (extra sandboxes, HTTP clients, custom
-packages). Olivia hosts often inject native catalog tools here. Register at
-agent create/update time:
+packages). Host deployments often inject catalog or sandbox tools here.
+Register at agent create/update time:
 
 ```bash
 $EXO --harness typescript agent update worker \
