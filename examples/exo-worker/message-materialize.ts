@@ -39,7 +39,38 @@ export async function materializeExoWorkerPromptMessages(
 ): Promise<Message[]> {
   const history = await materializeExoWorkerConversationMessages(conversation);
   const withVision = await hydrateToolResultsForVision(conversation, history);
-  return [...instructions, ...repairLinguaToolPairing(withVision)];
+  // Reasoning models emit separate assistant rows for reasoning vs tool_calls.
+  // Coalescing those into one message makes Lingua reject the request
+  // ("Mixed reasoning and other content parts"). Drop reasoning on replay —
+  // encrypted_content cannot be reused with store:false anyway.
+  return [
+    ...instructions,
+    ...repairLinguaToolPairing(stripReasoningParts(withVision)),
+  ];
+}
+
+/** @internal exported for tests */
+export function stripReasoningParts(messages: Message[]): Message[] {
+  const out: Message[] = [];
+  for (const msg of messages) {
+    if (msg.role !== "assistant" || !Array.isArray(msg.content)) {
+      out.push(msg);
+      continue;
+    }
+    const content = msg.content.filter(
+      (part) =>
+        !(
+          part &&
+          typeof part === "object" &&
+          (part as { type?: string }).type === "reasoning"
+        ),
+    );
+    if (content.length === 0) {
+      continue;
+    }
+    out.push({ ...msg, content });
+  }
+  return out;
 }
 
 export async function materializeExoWorkerConversationMessages(

@@ -13,6 +13,8 @@ Use this map before changing ExoWorker itself.
 ## Important Paths
 
 - `examples/exo-worker/harness.ts`: assembles ExoWorker's prompt and tool registry.
+- `examples/exo-worker/setup.sh`: configure ExoWorker in this checkout (no reinstall).
+- `examples/exo-worker/exo-worker.sh`: launch ExoWorker via root `exo.sh` with correct defaults.
 - `examples/exo-worker/prompts/me.md`: durable identity and operating rules.
 - `examples/exo-worker/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/exo-worker-memory.json`).
 - `examples/exo-worker/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.

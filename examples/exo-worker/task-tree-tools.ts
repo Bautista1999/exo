@@ -170,7 +170,8 @@ function taskTreeUpdateStatusTool(): ToolInstance {
         },
         result: {
           description:
-            "Optional result payload when completing or failing a node.",
+            "Optional text summary when completing or failing a node. Pass null when unused.",
+          type: ["string", "null"],
         },
       },
       required: ["nodeRef", "status", "result"],

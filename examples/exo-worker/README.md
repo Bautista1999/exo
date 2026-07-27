@@ -12,6 +12,25 @@ your exo `--root` (typically `.exo`).
 
 ## Quickstart
 
+### Option A — dedicated ExoWorker setup (recommended)
+
+After checking out this branch:
+
+```bash
+bash examples/exo-worker/setup.sh
+bash examples/exo-worker/exo-worker.sh
+```
+
+`setup.sh` configures `.env`, registers a model, and creates the ExoWorker agent
+in the current checkout. It does not clone or reinstall exo.
+
+Use `exo-worker.sh` (not plain `./exo.sh`) so the ExoWorker module, minimal
+template, and `local-process` sandbox are applied. Plain `./exo.sh` starts the
+canonical Exo agent (Docker + ExoChat). If you previously created the agent
+with Docker, `exo-worker.sh` clears the durable agent sandbox before launch.
+
+### Option B — manual CLI setup
+
 **Prerequisites:** a built `exo` binary, Node with pnpm, and a model API key
 (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`).
 
@@ -102,6 +121,8 @@ own database or UI.
 ```text
 examples/exo-worker/
   harness.ts                 Entry point: prompts + tool registration
+  setup.sh                   Configure ExoWorker agent in this checkout
+  exo-worker.sh              Launch ExoWorker (wraps root exo.sh)
   turn-loop.ts               Model/tool round loop + budget extensions
   turn-loop-nudge.ts         Text-only nudge helpers
   message-materialize.ts     Conversation history → model messages

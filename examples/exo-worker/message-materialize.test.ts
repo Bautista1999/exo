@@ -6,6 +6,7 @@ import {
   hydrateToolResultsForVision,
   materializeExoWorkerEventsToMessages,
   repairLinguaToolPairing,
+  stripReasoningParts,
 } from "./message-materialize.js";
 
 describe("materializeExoWorkerEventsToMessages", () => {
@@ -381,5 +382,48 @@ describe("hydrateToolResultsForVision", () => {
           m.content.some((p) => (p as { type?: string }).type === "image"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("stripReasoningParts", () => {
+  it("drops reasoning so coalesce does not mix it with tool_calls", () => {
+    const messages: Message[] = [
+      { role: "user", content: "run it" },
+      {
+        role: "assistant",
+        content: [{ type: "reasoning", text: "", encrypted_content: "x" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_call",
+            tool_call_id: "call_a",
+            tool_name: "shell",
+            arguments: { type: "valid", value: { command: "ls" } },
+          },
+        ],
+      },
+    ];
+
+    const repaired = repairLinguaToolPairing(stripReasoningParts(messages));
+    expect(repaired).toEqual([
+      { role: "user", content: "run it" },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_call",
+            tool_call_id: "call_a",
+            tool_name: "shell",
+            arguments: { type: "valid", value: { command: "ls" } },
+          },
+        ],
+      },
+      toolResultMessage("call_a", "shell", {
+        ok: false,
+        error: "tool result missing from event log; synthesized by ExoWorker",
+      }),
+    ]);
   });
 });
