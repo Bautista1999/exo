@@ -19,31 +19,33 @@ import { registerIntrospectionTools } from "./introspection-tools";
 import { registerSandboxTools } from "./sandbox-tools";
 import { registerTaskTreeTools } from "./task-tree-tools";
 import { registerSchedulerTools } from "./scheduler-tools";
+import { exoWorkerEnv, exoWorkerEnvFlag } from "./env.js";
 import { memoryInstruction, registerMemoryTools } from "./memory-tools.js";
 import {
   basicHarnessInstructions,
   defaultBuiltInToolNames,
-  runWorkerclawHarnessTurn,
+  runExoWorkerHarnessTurn,
 } from "./turn-loop.js";
 
-const WORKERCLAW_IDENTITY_PROMPT = readFileSync(
+const EXO_WORKER_IDENTITY_PROMPT = readFileSync(
   new URL("./prompts/me.md", import.meta.url),
   "utf8",
 ).trim();
-const DEFAULT_LOCAL_PROMPT_PATH = ".exo/workerclaw-profile.md";
-const DEFAULT_WORKERCLAW_REPO = "/workspace/exo";
-const DEFAULT_WORKERCLAW_SELF_MAP = `${DEFAULT_WORKERCLAW_REPO}/examples/workerclaw/SELF.md`;
+const DEFAULT_LOCAL_PROMPT_PATH = ".exo/exo-worker-profile.md";
+const LEGACY_LOCAL_PROMPT_PATH = ".exo/workerclaw-profile.md";
+const DEFAULT_EXO_WORKER_REPO = "/workspace/exo";
+const DEFAULT_EXO_WORKER_SELF_MAP = `${DEFAULT_EXO_WORKER_REPO}/examples/exo-worker/SELF.md`;
 
 export default defineHarness({
   async runTurn(context) {
-    await runWorkerclawHarnessTurn(context, {
-      instructions: workerclawInstructions,
-      registerTools: registerWorkerclawTools,
+    await runExoWorkerHarnessTurn(context, {
+      instructions: exoWorkerInstructions,
+      registerTools: registerExoWorkerTools,
     });
   },
 });
 
-async function registerWorkerclawTools(
+async function registerExoWorkerTools(
   tools: HarnessToolRegistry,
   context: TurnContext,
 ): Promise<void> {
@@ -54,19 +56,19 @@ async function registerWorkerclawTools(
   registerSandboxTools(tools);
   registerMemoryTools(tools);
   registerSkillTools(tools);
-  if (process.env.WORKERCLAW_ENABLE_SCHEDULER === "true") {
+  if (exoWorkerEnvFlag("ENABLE_SCHEDULER")) {
     registerSchedulerTools(tools);
   }
   for (const modulePath of context.agentConfig.typescript?.toolModulePaths ??
     []) {
-    await registerWorkerclawToolModule(tools, context, modulePath);
+    await registerExoWorkerToolModule(tools, context, modulePath);
   }
   if (context.agentConfig.enableAgentToolCreation) {
     await registerAgentToolsFromDirectoryIfExists(tools, context);
   }
 }
 
-async function registerWorkerclawToolModule(
+async function registerExoWorkerToolModule(
   registry: HarnessToolRegistry,
   context: TurnContext,
   modulePath: string,
@@ -84,17 +86,16 @@ function builtInToolNames(context: TurnContext): BuiltInToolName[] {
   return defaultBuiltInToolNames(context);
 }
 
-async function workerclawInstructions(
-  context: TurnContext,
-): Promise<Message[]> {
-  const repoPath = process.env.WORKERCLAW_REPO ?? DEFAULT_WORKERCLAW_REPO;
-  const selfMapPath =
-    process.env.WORKERCLAW_SELF_MAP ?? DEFAULT_WORKERCLAW_SELF_MAP;
+async function exoWorkerInstructions(context: TurnContext): Promise<Message[]> {
+  const repoPath = exoWorkerEnv("REPO") ?? DEFAULT_EXO_WORKER_REPO;
+  const selfMapPath = exoWorkerEnv("SELF_MAP") ?? DEFAULT_EXO_WORKER_SELF_MAP;
+  const localPromptPath =
+    exoWorkerEnv("LOCAL_PROMPT_FILE") ?? DEFAULT_LOCAL_PROMPT_PATH;
   const instructions: Message[] = [
     ...basicHarnessInstructions(context),
     {
       role: "developer",
-      content: WORKERCLAW_IDENTITY_PROMPT,
+      content: EXO_WORKER_IDENTITY_PROMPT,
     },
     {
       role: "developer",
@@ -115,7 +116,7 @@ async function workerclawInstructions(
     toolLayerInstruction(context),
     {
       role: "developer",
-      content: `WorkerClaw source is at ${repoPath}. See ${selfMapPath} for layout. Local overrides may live in ${process.env.WORKERCLAW_LOCAL_PROMPT_FILE ?? DEFAULT_LOCAL_PROMPT_PATH}.`,
+      content: `ExoWorker source is at ${repoPath}. See ${selfMapPath} for layout. Local overrides may live in ${localPromptPath}.`,
     },
   ];
   const localPrompt = readLocalPrompt();
@@ -140,7 +141,7 @@ function toolLayerInstruction(context: TurnContext): Message {
   const layers = [
     "Tool layers (use the best match; all may be registered in the same turn):",
     "1. Host-injected tools — any modules registered on the agent via toolModulePaths (sandboxes, HTTP clients, platform catalog tools, etc.). Prefer these when they cover the job.",
-    "2. WorkerClaw substrate — task_tree_*, report_deliverable, complete_task, adapters, sandbox/introspection, remember/forget, install_skill/use_skill.",
+    "2. ExoWorker substrate — task_tree_*, report_deliverable, complete_task, adapters, sandbox/introspection, remember/forget, install_skill/use_skill.",
   ];
   if (context.agentConfig.enableAgentToolCreation) {
     layers.push(
@@ -151,11 +152,18 @@ function toolLayerInstruction(context: TurnContext): Message {
 }
 
 function readLocalPrompt(): string | null {
-  const path =
-    process.env.WORKERCLAW_LOCAL_PROMPT_FILE ?? DEFAULT_LOCAL_PROMPT_PATH;
-  if (!existsSync(path)) {
-    return null;
+  const configured = exoWorkerEnv("LOCAL_PROMPT_FILE");
+  const candidates = configured
+    ? [configured]
+    : [DEFAULT_LOCAL_PROMPT_PATH, LEGACY_LOCAL_PROMPT_PATH];
+  for (const path of candidates) {
+    if (!existsSync(path)) {
+      continue;
+    }
+    const contents = readFileSync(path, "utf8").trim();
+    if (contents.length > 0) {
+      return contents;
+    }
   }
-  const contents = readFileSync(path, "utf8").trim();
-  return contents.length === 0 ? null : contents;
+  return null;
 }

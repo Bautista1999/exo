@@ -1,6 +1,6 @@
-# WorkerClaw Self Map
+# ExoWorker Self Map
 
-WorkerClaw is an autonomous exo harness example: plan work as a task tree,
+ExoWorker is an autonomous exo harness example: plan work as a task tree,
 execute in sandboxes and adapters, and report deliverables. In a normal local
 startup, the repository is mounted in the sandbox at:
 
@@ -8,25 +8,25 @@ startup, the repository is mounted in the sandbox at:
 /workspace/exo
 ```
 
-Use this map before changing WorkerClaw itself.
+Use this map before changing ExoWorker itself.
 
 ## Important Paths
 
-- `examples/workerclaw/harness.ts`: assembles WorkerClaw's prompt and tool registry.
-- `examples/workerclaw/prompts/me.md`: durable identity and operating rules.
-- `examples/workerclaw/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/workerclaw-memory.json`).
-- `examples/workerclaw/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.
-- `examples/workerclaw/introspection-tools.ts`: adapter and conversation introspection.
-- `examples/workerclaw/sandbox-tools.ts`: sandbox snapshot and rewind tools.
-- `examples/workerclaw/scheduler-tools.ts`: scheduled task tools (optional via `WORKERCLAW_ENABLE_SCHEDULER`).
+- `examples/exo-worker/harness.ts`: assembles ExoWorker's prompt and tool registry.
+- `examples/exo-worker/prompts/me.md`: durable identity and operating rules.
+- `examples/exo-worker/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/exo-worker-memory.json`).
+- `examples/exo-worker/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.
+- `examples/exo-worker/introspection-tools.ts`: adapter and conversation introspection.
+- `examples/exo-worker/sandbox-tools.ts`: sandbox snapshot and rewind tools.
+- `examples/exo-worker/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
 - `typescript/harness/skill-tools.ts`: `install_skill` / `use_skill` / `list_skills` / `uninstall_skill` (agent artifacts).
-- `examples/workerclaw/adapters/`: adapter setup prompts and worker implementations.
+- `examples/exo-worker/adapters/`: adapter setup prompts and worker implementations.
 - `typescript/harness/adapter-tools.ts`: model-visible adapter tool definitions.
 - `crates/executor/src/adapter/`: Rust adapter runtime and supervision.
 
 ## Self-evolution (rung 1)
 
-WorkerClaw can grow capability without rebuilding itself:
+ExoWorker can grow capability without rebuilding itself:
 
 - **Memory** — short durable facts across jobs (`remember` / `forget`).
 - **Skills** — multi-step playbooks as agent artifacts (`install_skill` / `use_skill`). Distinct from any methodology skills a host may inject in the task briefing.
@@ -34,7 +34,7 @@ WorkerClaw can grow capability without rebuilding itself:
 
 ## Task Tree
 
-WorkerClaw owns planning. Task-tree tools persist `task-tree.json` as a
+ExoWorker owns planning. Task-tree tools persist `task-tree.json` as a
 conversation artifact and return structured `bridgeEvent` objects in tool
 results so an external host (if any) can mirror progress into its own store.
 
@@ -47,10 +47,12 @@ results so an external host (if any) can mirror progress into its own store.
 
 | Variable                       | Purpose                                       |
 | ------------------------------ | --------------------------------------------- |
-| `WORKERCLAW_REPO`              | Sandbox mount path (default `/workspace/exo`) |
-| `WORKERCLAW_SELF_MAP`          | Path to this file                             |
-| `WORKERCLAW_LOCAL_PROMPT_FILE` | Optional local profile override               |
-| `WORKERCLAW_ENABLE_SCHEDULER`  | `true` to register scheduler tools            |
+| `EXO_WORKER_REPO`              | Sandbox mount path (default `/workspace/exo`) |
+| `EXO_WORKER_SELF_MAP`          | Path to this file                             |
+| `EXO_WORKER_LOCAL_PROMPT_FILE` | Optional local profile override               |
+| `EXO_WORKER_ENABLE_SCHEDULER`  | `true` to register scheduler tools            |
+
+Legacy `WORKERCLAW_*` names still work when the matching `EXO_WORKER_*` var is unset.
 
 Host deployments may inject additional tool modules via agent `toolModulePaths`
 and mirror OAuth/API credentials into exo conversation secrets — that wiring lives

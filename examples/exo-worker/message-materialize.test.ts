@@ -4,11 +4,11 @@ import { toolResultMessage, type Event, type Message } from "@exo/harness";
 
 import {
   hydrateToolResultsForVision,
-  materializeWorkerclawEventsToMessages,
+  materializeExoWorkerEventsToMessages,
   repairLinguaToolPairing,
 } from "./message-materialize.js";
 
-describe("materializeWorkerclawEventsToMessages", () => {
+describe("materializeExoWorkerEventsToMessages", () => {
   it("keeps parallel tool results when names only appear in messages events", () => {
     const events: Event[] = [
       {
@@ -60,7 +60,7 @@ describe("materializeWorkerclawEventsToMessages", () => {
       },
     ];
 
-    expect(materializeWorkerclawEventsToMessages(events)).toEqual([
+    expect(materializeExoWorkerEventsToMessages(events)).toEqual([
       {
         role: "assistant",
         content: [
@@ -208,7 +208,7 @@ describe("repairLinguaToolPairing", () => {
       }),
       toolResultMessage("call_a", "task_tree_init", {
         ok: false,
-        error: "tool result missing from event log; synthesized by WorkerClaw",
+        error: "tool result missing from event log; synthesized by ExoWorker",
       }),
     ]);
   });

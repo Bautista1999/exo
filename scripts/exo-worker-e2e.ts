@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Live E2E for WorkerClaw against a real exo binary + model provider.
+ * Live E2E for ExoWorker against a real exo binary + model provider.
  *
  * Verifies that a constrained turn calls `task_tree_init` then `complete_task`,
  * and that those tool calls show up in conversation events.
@@ -12,7 +12,7 @@
  *
  * Run from the exo repo root:
  *
- *   pnpm e2e:workerclaw
+ *   pnpm e2e:exo-worker
  *
  * Options:
  *   --model <id>       Override model (default: claude-sonnet-4-6 or gpt-5.4)
@@ -63,13 +63,13 @@ interface EventRecord {
   };
 }
 
-const MODULE = "examples/workerclaw/harness.ts";
+const MODULE = "examples/exo-worker/harness.ts";
 /** Matches agent-harness-e2e / docs. Override with --model. */
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 const DEFAULT_TIMEOUT_MS = 180_000;
 
-const E2E_USER_MESSAGE = `# Automated WorkerClaw E2E test
+const E2E_USER_MESSAGE = `# Automated ExoWorker E2E test
 
 You MUST call exactly two tools in this order, then stop. Do not write any text response.
 
@@ -77,7 +77,7 @@ You MUST call exactly two tools in this order, then stop. Do not write any text 
 
 2. \`complete_task\` with summary "e2e-ok" and status "completed".`;
 
-const E2E_COMPLETE_NUDGE = `# Continue WorkerClaw E2E test
+const E2E_COMPLETE_NUDGE = `# Continue ExoWorker E2E test
 
 Call \`complete_task\` now with summary "e2e-ok" and status "completed". Do not call any other tools. Do not write text.`;
 
@@ -86,7 +86,7 @@ loadDotEnv(join(repoRoot, ".env"), { override: true });
 
 const args = parseArgs(process.argv.slice(2));
 const runId = randomUUID().slice(0, 8);
-const root = args.root ?? mkdtempSync(join(tmpdir(), "exo-workerclaw-e2e-"));
+const root = args.root ?? mkdtempSync(join(tmpdir(), "exo-worker-e2e-"));
 const exoBin = resolveExoBin();
 
 await main();
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
   try {
     log("registering secret + model…");
     registerSecretAndModel(provider);
-    const agentSlug = `e2e-workerclaw-${runId}`;
+    const agentSlug = `e2e-exo-worker-${runId}`;
     const conversation = `job-${runId}`;
 
     log(`creating agent ${agentSlug} (local-process sandbox)…`);
@@ -170,7 +170,10 @@ async function main(): Promise<void> {
 
 function resolveProvider(): ProviderBinding | null {
   const modelOverride =
-    args.model ?? process.env.WORKERCLAW_E2E_MODEL?.trim() ?? null;
+    args.model ??
+    process.env.EXO_WORKER_E2E_MODEL?.trim() ??
+    process.env.WORKERCLAW_E2E_MODEL?.trim() ??
+    null;
 
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return {
@@ -217,7 +220,7 @@ function createAgent(slug: string, provider: ProviderBinding): void {
     "local-process",
     "agent",
     "create",
-    "WorkerClaw E2E",
+    "ExoWorker E2E",
     "--slug",
     slug,
     "--module",
@@ -491,18 +494,18 @@ function errorMessage(error: unknown): string {
 }
 
 function log(message: string): void {
-  console.log(`[workerclaw-e2e] ${message}`);
+  console.log(`[exo-worker-e2e] ${message}`);
 }
 
 function fail(message: string): never {
-  console.error(`[workerclaw-e2e] ${message}`);
+  console.error(`[exo-worker-e2e] ${message}`);
   process.exit(1);
 }
 
 function printHelpAndExit(): never {
-  console.log(`Usage: pnpm e2e:workerclaw [options]
+  console.log(`Usage: pnpm e2e:exo-worker [options]
 
-Runs a live WorkerClaw turn against exoharness and asserts task_tree_init + complete_task.
+Runs a live ExoWorker turn against exoharness and asserts task_tree_init + complete_task.
 
 Options:
   --model <id>        Model to register (default depends on provider key)
