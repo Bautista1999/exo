@@ -9,7 +9,7 @@ import {
 } from "@exo/harness";
 
 /**
- * WorkerClaw-local conversation materialization.
+ * ExoWorker-local conversation materialization.
  *
  * exo's event log often splits one model turn into multiple consecutive
  * assistant messages (text, then one message per tool_call). The Chat API
@@ -33,23 +33,23 @@ const IMAGE_BASE64_KEYS = new Set([
 /** Strings longer than this that look like base64 are dropped from prompts. */
 const BASE64_STRIP_MIN_CHARS = 256;
 
-export async function materializeWorkerclawPromptMessages(
+export async function materializeExoWorkerPromptMessages(
   conversation: Conversation,
   instructions: Message[],
 ): Promise<Message[]> {
-  const history = await materializeWorkerclawConversationMessages(conversation);
+  const history = await materializeExoWorkerConversationMessages(conversation);
   const withVision = await hydrateToolResultsForVision(conversation, history);
   return [...instructions, ...repairLinguaToolPairing(withVision)];
 }
 
-export async function materializeWorkerclawConversationMessages(
+export async function materializeExoWorkerConversationMessages(
   conversation: Conversation,
 ): Promise<Message[]> {
   const result = await conversation.getEvents({
     direction: "asc",
     types: ["messages", "tool_requested", "tool_result"],
   });
-  return materializeWorkerclawEventsToMessages(result.events);
+  return materializeExoWorkerEventsToMessages(result.events);
 }
 
 /**
@@ -201,7 +201,7 @@ async function resolveFullToolOutput(
       }
     } catch (err) {
       console.warn(
-        "[workerclaw] failed to rehydrate tool result artifact:",
+        "[exo-worker] failed to rehydrate tool result artifact:",
         err instanceof Error ? err.message : err,
       );
     }
@@ -381,7 +381,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function materializeWorkerclawEventsToMessages(
+export function materializeExoWorkerEventsToMessages(
   events: Event[],
 ): Message[] {
   const messages: Message[] = [];
@@ -389,7 +389,7 @@ export function materializeWorkerclawEventsToMessages(
   const pendingToolCallIds: string[] = [];
 
   for (const event of events) {
-    extendWorkerclawMaterializedMessages(
+    extendExoWorkerMaterializedMessages(
       messages,
       toolCallNames,
       pendingToolCallIds,
@@ -469,8 +469,7 @@ function normalizeToolRoundPairing(messages: Message[]): Message[] {
       out.push(
         toolResultMessage(id, name, {
           ok: false,
-          error:
-            "tool result missing from event log; synthesized by WorkerClaw",
+          error: "tool result missing from event log; synthesized by ExoWorker",
         }),
       );
       synthesized++;
@@ -491,7 +490,7 @@ function normalizeToolRoundPairing(messages: Message[]): Message[] {
 
   if (synthesized > 0 || dropped > 0) {
     console.warn(
-      `[workerclaw] repaired tool pairing: synthesized=${synthesized} dropped_orphans=${dropped}`,
+      `[exo-worker] repaired tool pairing: synthesized=${synthesized} dropped_orphans=${dropped}`,
     );
   }
 
@@ -567,7 +566,7 @@ function toolResultIdsFromParts(content: unknown[]): string[] {
   return ids;
 }
 
-function extendWorkerclawMaterializedMessages(
+function extendExoWorkerMaterializedMessages(
   messages: Message[],
   toolCallNames: Map<string, string>,
   pendingToolCallIds: string[],

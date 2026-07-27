@@ -1,10 +1,12 @@
 import type { EventData, Message } from "@exo/harness";
 
+import { exoWorkerEnv } from "./env.js";
+
 /** Extra model rounds when the agent stops with text before complete_task. */
 export const DEFAULT_MAX_TEXT_ONLY_NUDGES = 3;
 
 export function resolveMaxTextOnlyNudges(): number {
-  const raw = process.env.WORKERCLAW_MAX_TEXT_ONLY_NUDGES?.trim();
+  const raw = exoWorkerEnv("MAX_TEXT_ONLY_NUDGES")?.trim();
   if (!raw) return DEFAULT_MAX_TEXT_ONLY_NUDGES;
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 0) {

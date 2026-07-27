@@ -1,6 +1,6 @@
 # WhatsApp adapter (Twilio)
 
-Outbound-only Twilio WhatsApp adapter for WorkerClaw.
+Outbound-only Twilio WhatsApp adapter for ExoWorker.
 
 ## Secrets
 

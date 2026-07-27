@@ -22,7 +22,7 @@ import {
 } from "@exo/model-runtime/responses";
 import { ensureTable } from "@exo/model-runtime/cost";
 
-import { materializeWorkerclawPromptMessages } from "./message-materialize.js";
+import { materializeExoWorkerPromptMessages } from "./message-materialize.js";
 import {
   buildTextOnlyNudgeMessage,
   extractAssistantTextFromEvents,
@@ -38,7 +38,7 @@ import {
   readTaskTreeSnapshot,
 } from "./task-tree-snapshot.js";
 
-export interface WorkerclawTurnLoopOptions {
+export interface ExoWorkerTurnLoopOptions {
   instructions?: (context: TurnContext) => Message[] | Promise<Message[]>;
   registerTools?: (
     tools: HarnessToolRegistry,
@@ -46,15 +46,15 @@ export interface WorkerclawTurnLoopOptions {
   ) => Promise<void> | void;
 }
 
-export async function runWorkerclawHarnessTurn(
+export async function runExoWorkerHarnessTurn(
   context: TurnContext,
-  options: WorkerclawTurnLoopOptions = {},
+  options: ExoWorkerTurnLoopOptions = {},
 ): Promise<void> {
   await ensureTable();
   const modelBinding = await resolveLlmBinding(context);
   const runtime = runtimeFromModelBinding(context.agentConfig, modelBinding);
   await runtime.runTurn(context, (turnParent) =>
-    runWorkerclawTurnLoop(
+    runExoWorkerTurnLoop(
       runtime,
       context,
       turnParent,
@@ -94,12 +94,12 @@ export function agentToolCreationInstruction(): Message {
   };
 }
 
-async function runWorkerclawTurnLoop(
+async function runExoWorkerTurnLoop(
   runtime: ResponsesRuntimeLike,
   context: TurnContext,
   turnParent: TraceParent,
   model: string,
-  options: WorkerclawTurnLoopOptions,
+  options: ExoWorkerTurnLoopOptions,
 ): Promise<string | null> {
   const { conversation } = context.exoharness.current;
   const maxToolRoundTrips = context.agentConfig.maxToolRoundTrips;
@@ -124,7 +124,7 @@ async function runWorkerclawTurnLoop(
       }
       if (budgetExtensions >= DEFAULT_ROUND_BUDGET_EXTENSIONS) {
         console.warn(
-          `[workerclaw] round budget exhausted before complete_task (round=${round}, maxToolRoundTrips=${maxToolRoundTrips ?? "none"}, nudgesUsed=${textOnlyNudgesUsed})`,
+          `[exo-worker] round budget exhausted before complete_task (round=${round}, maxToolRoundTrips=${maxToolRoundTrips ?? "none"}, nudgesUsed=${textOnlyNudgesUsed})`,
         );
         return latestEventId;
       }
@@ -157,7 +157,7 @@ async function runWorkerclawTurnLoop(
       }
     }
 
-    const messages = await materializeWorkerclawPromptMessages(
+    const messages = await materializeExoWorkerPromptMessages(
       conversation,
       options.instructions
         ? await options.instructions(context)
@@ -222,7 +222,7 @@ async function runWorkerclawTurnLoop(
         lastAssistantText,
       );
       console.warn(
-        `[workerclaw] text-only exit before complete_task — nudge ${textOnlyNudgesUsed}/${maxTextOnlyNudges}`,
+        `[exo-worker] text-only exit before complete_task — nudge ${textOnlyNudgesUsed}/${maxTextOnlyNudges}`,
       );
       latestEventId = await appendTurnEvents(context, [
         messagesEvent([

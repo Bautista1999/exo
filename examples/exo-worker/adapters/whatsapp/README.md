@@ -1,6 +1,6 @@
 # WhatsApp adapter (Twilio)
 
-Outbound-only Twilio WhatsApp adapter for WorkerClaw.
+Outbound-only Twilio WhatsApp adapter for ExoWorker.
 
 ## What it does today
 
@@ -14,7 +14,7 @@ incoming messages.
 ## Inbound (not in this worker)
 
 Twilio delivers inbound WhatsApp to an **HTTP webhook** you configure in the
-Twilio console — not to a long-lived sidecar process. To wake WorkerClaw on
+Twilio console — not to a long-lived sidecar process. To wake ExoWorker on
 inbound messages you need a separate ingress path, for example:
 
 1. **Webhook → exo wakeup** — A small HTTP handler receives Twilio POSTs,
@@ -54,17 +54,17 @@ while the worker is outbound-only.
 
 ## Outbound example
 
-After creating the adapter, ask WorkerClaw:
+After creating the adapter, ask ExoWorker:
 
 ```text
-Send "hello from WorkerClaw" on WhatsApp adapter <adapter-id> to +15551234567.
+Send "hello from ExoWorker" on WhatsApp adapter <adapter-id> to +15551234567.
 ```
 
 Or rely on `defaultTo` in config and omit the target in `send_adapter_message`.
 
 ## TODOs
 
-- **Executor WhatsApp config (upstream exo)** — `create_adapter` still validates Baileys-shaped WhatsApp config in `crates/executor`. Twilio fields (`defaultTo`, secret refs) belong in a separate exo-core change, not in WorkerClaw-only diffs. Until then this `worker.ts` is the sidecar implementation ready for when that lands.
+- **Executor WhatsApp config (upstream exo)** — `create_adapter` still validates Baileys-shaped WhatsApp config in `crates/executor`. Twilio fields (`defaultTo`, secret refs) belong in a separate exo-core change, not in ExoWorker-only diffs. Until then this `worker.ts` is the sidecar implementation ready for when that lands.
 - **Twilio inbound webhook (later)** — Optional exo-native path: HTTP handler receives Twilio POSTs, validates signature, emits adapter `message` events / wakes the conversation. Not needed when a host platform already owns ingress (e.g. a Receiver on a webhook service that creates tasks and only uses this worker for outbound `send_adapter_message` during execution).
 - **Rich attachments** — Outbound media (image, document) via Twilio; inbound media parsing if inbound is added.
 - **`trigger` / `allowedChats`** — Wire config fields once inbound filtering exists.
