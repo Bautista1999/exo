@@ -12,7 +12,7 @@ import {
 const IDEOGRAM_V4_MODEL = "ideogram/v4";
 const IDEOGRAM_V4_ENDPOINT = "https://fal.run/ideogram/v4";
 const DEFAULT_TIMEOUT_MS = 120_000;
-const DEFAULT_CACHE_ROOT = "/tmp/exoclaw-fal";
+const DEFAULT_CACHE_ROOT = "/tmp/exo-worker-fal";
 const DEFAULT_CACHE_MOUNT = "/fal";
 const MAX_FAL_IMAGE_BYTES = 8 * 1024 * 1024;
 

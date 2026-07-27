@@ -51,6 +51,9 @@ async function registerExoWorkerTools(
 ): Promise<void> {
   registerBuiltInTools(tools, context, builtInToolNames(context));
   registerTaskTreeTools(tools);
+  // Reuse Exo's shipped adapters (examples/exo/adapters). create_adapter with
+  // source "library" resolves workers from that tree via ExoToolRuntime — this
+  // example intentionally does not duplicate Discord/IRC/WhatsApp/Signal/Slack.
   registerAdapterTools(tools);
   registerIntrospectionTools(tools);
   registerSandboxTools(tools);

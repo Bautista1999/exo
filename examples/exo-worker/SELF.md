@@ -22,8 +22,10 @@ Use this map before changing ExoWorker itself.
 - `examples/exo-worker/sandbox-tools.ts`: sandbox snapshot and rewind tools.
 - `examples/exo-worker/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
 - `typescript/harness/skill-tools.ts`: `install_skill` / `use_skill` / `list_skills` / `uninstall_skill` (agent artifacts).
-- `examples/exo-worker/adapters/`: adapter setup prompts and worker implementations.
-- `typescript/harness/adapter-tools.ts`: model-visible adapter tool definitions.
+- `typescript/harness/adapter-tools.ts`: model-visible adapter tools (`create_adapter`, …).
+- `examples/exo/adapters/`: shipped library adapter workers — ExoWorker reuses these via `registerAdapterTools` (no local copy).
+- `examples/exo/adapter-architecture.md` / `examples/exo/docs/SELF-CONTROL.md`: shared adapter and self-control docs.
+- `examples/exo/scripts/exo-service-guardian` / `examples/exo/scheduler-runner/`: host service helpers shared with canonical Exo.
 - `crates/executor/src/adapter/`: Rust adapter runtime and supervision.
 
 ## Self-evolution (rung 1)

@@ -134,17 +134,20 @@ examples/exo-worker/
   sandbox-tools.ts           Snapshot and rewind for the agent sandbox
   scheduler-tools.ts         Recurring tasks (optional; see env below)
   host-tools.ts              Bridge from TypeScript tool defs to Rust host tools
-  guardian-tools.ts          Host guardian / self-control helpers
-  adapters/                  Sidecar workers (IRC, Discord, WhatsApp, Signal, …)
-  scheduler-runner/          Host process that fires scheduled sandbox tasks
-  scripts/                   Local control helpers
   SELF.md                    Map of important paths for self-inspection
 ```
 
-Rust adapter runtime and model-facing adapter tools live outside this folder:
+Shared with the canonical Exo example (not copied into this folder):
 
+- `examples/exo/adapters/` — library adapter workers (Discord, IRC, WhatsApp, …)
+- `examples/exo/scripts/` — `exo-cli`, `exo-service-guardian`
+- `examples/exo/scheduler-runner/` — host process that fires scheduled sandbox tasks
 - `crates/executor/src/adapter/` — adapter store, worker supervision, outbox
 - `typescript/harness/adapter-tools.ts` — `create_adapter`, `send_adapter_message`, …
+
+`registerAdapterTools(tools)` in `harness.ts` is the reuse path: library
+adapters resolve to `examples/exo/adapters/<type>/worker.ts` inside
+`TypeScriptHarness::exo_from_root`.
 
 See [`SELF.md`](./SELF.md) for the full path map the agent reads at runtime.
 
@@ -228,20 +231,26 @@ $EXO --harness typescript agent update worker \
 ## Adapters
 
 Adapters are long-running host processes that connect ExoWorker to external
-apps (chat, IRC, CLI bridges). They are separate from one-shot sandbox commands:
-adapters keep connections open, parse inbound traffic, write event history, and
-wake the conversation when something needs a reply.
+apps (chat, IRC, CLI bridges). ExoWorker does **not** ship its own adapter
+workers — it reuses the canonical ones under
+[`examples/exo/adapters/`](../exo/adapters/).
 
-Shipped adapter workers live under `adapters/`:
+`harness.ts` calls `registerAdapterTools(tools)`. That registers
+`create_adapter` / `list_adapters` / `send_adapter_message` / …, and library
+adapters (`source: "library"`, type `discord` | `whatsapp` | `signal` |
+`slack` | `exochat`) run the workers already checked in at
+`examples/exo/adapters/<type>/worker.ts`. Built-in adapters (`irc`,
+`agent-cli`) use the same shared tree.
 
-| Adapter                                         | Notes                                          |
-| ----------------------------------------------- | ---------------------------------------------- |
-| [Discord](./adapters/discord/README.md)         | Bot token, rich attachments, optional voice    |
-| [IRC](./adapters/irc/README.md)                 | TLS/plain TCP, mention or all-messages trigger |
-| [WhatsApp](./adapters/whatsapp/setup-prompt.md) | Twilio outbound (see setup prompt)             |
-| [Signal](./adapters/signal/README.md)           | `signal-cli` linked device                     |
-| [Slack](./adapters/slack/README.md)             | Slack Bolt worker                              |
-| [agent-cli](./adapters/agent-cli/README.md)     | Unix-socket shell bridge from any directory    |
+| Adapter   | Docs                                                             |
+| --------- | ---------------------------------------------------------------- |
+| Discord   | [`examples/exo/adapters/discord/`](../exo/adapters/discord/)     |
+| IRC       | [`examples/exo/adapters/irc/`](../exo/adapters/irc/)             |
+| WhatsApp  | [`examples/exo/adapters/whatsapp/`](../exo/adapters/whatsapp/)   |
+| Signal    | [`examples/exo/adapters/signal/`](../exo/adapters/signal/)       |
+| Slack     | [`examples/exo/adapters/slack/`](../exo/adapters/slack/)         |
+| ExoChat   | [`examples/exo/adapters/exochat/`](../exo/adapters/exochat/)     |
+| agent-cli | [`examples/exo/adapters/agent-cli/`](../exo/adapters/agent-cli/) |
 
 To list configured adapters after setup:
 
@@ -249,10 +258,9 @@ To list configured adapters after setup:
 $EXO --harness typescript adapters list
 ```
 
-Adapter setup usually means creating a library adapter through the agent
-(`create_adapter`) or running a local control script that sends the setup
-prompts in `adapters/*/setup-prompt.md`. Each adapter README documents its
-secrets and config JSON.
+Create one through the agent (`create_adapter`) or send a setup prompt from
+`examples/exo/adapters/<type>/setup-prompt.md` (same flow as canonical Exo).
+Architecture notes: [`examples/exo/adapter-architecture.md`](../exo/adapter-architecture.md).
 
 ## Identity and local profile
 
@@ -346,6 +354,6 @@ your host's secret sync before starting adapters or injected tool modules.
 ## Further reading
 
 - [`SELF.md`](./SELF.md) — path map for changing ExoWorker itself
-- [`adapter-architecture.md`](./adapter-architecture.md) — adapter store, runtime, and worker protocol
-- [`docs/SELF-CONTROL.md`](./docs/SELF-CONTROL.md) — durable state, introspection, and service lifecycle
+- [`examples/exo/adapter-architecture.md`](../exo/adapter-architecture.md) — adapter store, runtime, and worker protocol
+- [`examples/exo/docs/SELF-CONTROL.md`](../exo/docs/SELF-CONTROL.md) — durable state, introspection, and service lifecycle
 - [`scripts/exo-worker-e2e.ts`](../../scripts/exo-worker-e2e.ts) — live E2E implementation

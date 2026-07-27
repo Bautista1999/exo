@@ -127,7 +127,7 @@ describe("generateFalImage", () => {
           };
         },
         fetchImage: async () => ({
-          hostPath: "/tmp/exoclaw-fal/image.jpg",
+          hostPath: "/tmp/exo-worker-fal/image.jpg",
           sandboxPath: "/fal/image.jpg",
           mimeType: "image/jpeg",
           fileName: "image.jpg",
@@ -152,7 +152,7 @@ describe("generateFalImage", () => {
           mimeType: "image/jpeg",
           fileName: "image.jpg",
           fileSize: 3,
-          path: "/tmp/exoclaw-fal/image.jpg",
+          path: "/tmp/exo-worker-fal/image.jpg",
           sandboxPath: "/fal/image.jpg",
           width: 1024,
           height: 1024,
@@ -194,7 +194,7 @@ describe("generateFalImage", () => {
           expect(url).toBe("https://v3b.fal.media/files/a/image.jpg");
           expect(fallbackMimeType).toBe("image/jpeg");
           return {
-            hostPath: "/tmp/exoclaw-fal/image.jpg",
+            hostPath: "/tmp/exo-worker-fal/image.jpg",
             sandboxPath: "/fal/image.jpg",
             mimeType: "image/jpeg",
             fileName: "image.jpg",
@@ -215,7 +215,7 @@ describe("generateFalImage", () => {
           mimeType: "image/jpeg",
           fileName: "image.jpg",
           fileSize: 3,
-          path: "/tmp/exoclaw-fal/image.jpg",
+          path: "/tmp/exo-worker-fal/image.jpg",
           sandboxPath: "/fal/image.jpg",
           width: 1024,
           height: 1024,
@@ -225,7 +225,7 @@ describe("generateFalImage", () => {
       media: [
         {
           type: "image",
-          path: "/tmp/exoclaw-fal/image.jpg",
+          path: "/tmp/exo-worker-fal/image.jpg",
           mimeType: "image/jpeg",
         },
       ],
