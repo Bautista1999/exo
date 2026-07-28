@@ -16,8 +16,6 @@ import type {
 // Persists across tasks/conversations. Stored as a JSON artifact on the agent
 // handle (same pattern as examples/exo).
 const MEMORY_ARTIFACT_PATH = "memory/exo-worker-memory.json";
-/** @deprecated One-release read fallback after WorkerClaw → ExoWorker rename. */
-const LEGACY_MEMORY_ARTIFACT_PATH = "memory/workerclaw-memory.json";
 // Soft caps so always-injecting memory cannot grow the prompt without bound.
 const MAX_ENTRIES = 200;
 const MAX_TEXT_CHARS = 600;
@@ -221,10 +219,10 @@ export async function memoryInstruction(
 async function readLatestMemoryArtifact(
   handle: MemoryHandle,
 ): Promise<unknown | null> {
-  const artifacts = await handle.listArtifacts();
-  const latest =
-    latestArtifactVersion(artifacts, MEMORY_ARTIFACT_PATH) ??
-    latestArtifactVersion(artifacts, LEGACY_MEMORY_ARTIFACT_PATH);
+  const latest = latestArtifactVersion(
+    await handle.listArtifacts(),
+    MEMORY_ARTIFACT_PATH,
+  );
   if (latest === null) {
     return null;
   }
