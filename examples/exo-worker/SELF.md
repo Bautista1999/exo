@@ -21,6 +21,7 @@ Use this map before changing ExoWorker itself.
 - `examples/exo-worker/tools/introspection-tools.ts`: adapter and conversation introspection.
 - `examples/exo-worker/tools/sandbox-tools.ts`: sandbox snapshot and rewind tools.
 - `examples/exo-worker/tools/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
+- `examples/exo-worker/tools/fal/fal-tools.ts`: `fal_generate_image` (optional via `EXO_WORKER_ENABLE_FAL`; needs `FAL_KEY`).
 - `typescript/harness/skill-tools.ts`: `install_skill` / `use_skill` / `list_skills` / `uninstall_skill` (agent artifacts).
 - `typescript/harness/adapter-tools.ts`: model-visible adapter tools (`create_adapter`, …).
 - `examples/exo/adapters/`: shipped library adapter workers — ExoWorker reuses these via `registerAdapterTools` (no local copy).
@@ -55,6 +56,10 @@ results so an external host (if any) can mirror progress into its own store.
 | `EXO_WORKER_SELF_MAP`          | Path to this file                             |
 | `EXO_WORKER_LOCAL_PROMPT_FILE` | Optional local profile override               |
 | `EXO_WORKER_ENABLE_SCHEDULER`  | `true` to register scheduler tools            |
+| `EXO_WORKER_ENABLE_FAL`        | `true` to register fal image generation       |
+
+Set these in the exo repository root `.env` (or export them in the shell), not
+under `examples/exo-worker/`. `FAL_KEY` is required when fal is enabled.
 
 Host deployments may inject additional tool modules via agent `toolModulePaths`
 and mirror OAuth/API credentials into exo conversation secrets — that wiring lives

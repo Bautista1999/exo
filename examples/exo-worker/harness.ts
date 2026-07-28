@@ -15,6 +15,7 @@ import {
   type TurnContext,
 } from "@exo/harness";
 
+import { registerFalTools } from "./tools/fal/fal-tools.js";
 import { registerIntrospectionTools } from "./tools/introspection-tools.js";
 import { registerSandboxTools } from "./tools/sandbox-tools.js";
 import { registerTaskTreeTools } from "./tools/task-tree-tools.js";
@@ -63,6 +64,9 @@ async function registerExoWorkerTools(
   registerSkillTools(tools);
   if (exoWorkerEnvFlag("ENABLE_SCHEDULER")) {
     registerSchedulerTools(tools);
+  }
+  if (exoWorkerEnvFlag("ENABLE_FAL")) {
+    registerFalTools(tools);
   }
   for (const modulePath of context.agentConfig.typescript?.toolModulePaths ??
     []) {

@@ -21,8 +21,9 @@ bash examples/exo-worker/setup.sh
 bash examples/exo-worker/exo-worker.sh
 ```
 
-`setup.sh` configures `.env`, registers a model, and creates the ExoWorker agent
-in the current checkout. It does not clone or reinstall exo.
+`setup.sh` configures the exo repository root `.env`, registers a model, and
+creates the ExoWorker agent in the current checkout. It does not clone or
+reinstall exo.
 
 Use `exo-worker.sh` (not plain `./exo.sh`) so the ExoWorker module, minimal
 template, and `local-process` sandbox are applied. Plain `./exo.sh` starts the
@@ -136,7 +137,7 @@ examples/exo-worker/
     memory-tools.ts          remember / forget and memory prompt injection
     host-tools.ts            Bridge from TypeScript defs to Rust host tools
     tool-args.ts             Unwrap nested harness tool-arg envelopes
-    fal/                     FAL image-generation tool module
+    fal/                     fal.ai image generation (optional; see env below)
   SELF.md                    Map of important paths for self-inspection
 ```
 
@@ -220,6 +221,10 @@ ExoWorker registers tools in layers (`harness.ts`):
 **Scheduler** (when `EXO_WORKER_ENABLE_SCHEDULER=true`):
 
 - `schedule_sandbox_task`, `list_scheduled_tasks`, `cancel_scheduled_task`, `delete_scheduled_task`
+
+**Fal** (when `EXO_WORKER_ENABLE_FAL=true`; requires `FAL_KEY`):
+
+- `fal_generate_image` — Ideogram v4 via fal.ai; caches images for adapter attachments
 
 **Host-injected modules:** anything registered on the agent with
 `--tool-module` / `toolModulePaths` (extra sandboxes, HTTP clients, custom
@@ -332,10 +337,15 @@ pnpm e2e:exo-worker -- --timeout-ms 300000
 pnpm e2e:exo-worker -- --help
 ```
 
-Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. This is a **live**
-test (costs tokens); it is not part of `pnpm check`.
+Requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in the exo repository root
+`.env`. This is a **live** test (costs tokens); it is not part of `pnpm check`.
 
 ## Environment
+
+Put provider keys and ExoWorker flags in the **exo repository root** `.env`
+(next to `.env.example`) — not under `examples/exo-worker/`. `setup.sh` and
+the `exo` CLI load that file when you run from the checkout root. You can also
+export the same variables in your shell before launch.
 
 | Variable                          | Purpose                                                                      |
 | --------------------------------- | ---------------------------------------------------------------------------- |
@@ -343,9 +353,13 @@ test (costs tokens); it is not part of `pnpm check`.
 | `EXO_WORKER_SELF_MAP`             | Path to `SELF.md` inside the mount                                           |
 | `EXO_WORKER_LOCAL_PROMPT_FILE`    | Optional local profile (default `.exo/exo-worker-profile.md`)                |
 | `EXO_WORKER_ENABLE_SCHEDULER`     | Set to `true` to register scheduler tools                                    |
+| `EXO_WORKER_ENABLE_FAL`           | Set to `true` to register `fal_generate_image` (also needs `FAL_KEY`)        |
 | `EXO_WORKER_MAX_TEXT_ONLY_NUDGES` | Max developer nudges on text-only exits before `complete_task` (default `3`) |
 | `EXO_WORKER_E2E_MODEL`            | Optional model override for `pnpm e2e:exo-worker`                            |
 | `EXO_BIN`                         | Optional path to an `exo` binary for the E2E script                          |
+
+`FAL_KEY` is a host/provider secret (same root `.env` or shell), not an
+`EXO_WORKER_*` flag.
 
 Deployment-specific secrets (API keys, Twilio, OAuth tokens) belong in exo
 secrets or conversation secrets — not in this tree. Use `exo secret set` or
