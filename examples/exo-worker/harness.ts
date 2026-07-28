@@ -35,7 +35,6 @@ const EXO_WORKER_IDENTITY_PROMPT = readFileSync(
   "utf8",
 ).trim();
 const DEFAULT_LOCAL_PROMPT_PATH = ".exo/exo-worker-profile.md";
-const LEGACY_LOCAL_PROMPT_PATH = ".exo/workerclaw-profile.md";
 const DEFAULT_EXO_WORKER_REPO = "/workspace/exo";
 const DEFAULT_EXO_WORKER_SELF_MAP = `${DEFAULT_EXO_WORKER_REPO}/examples/exo-worker/SELF.md`;
 
@@ -158,18 +157,10 @@ function toolLayerInstruction(context: TurnContext): Message {
 }
 
 function readLocalPrompt(): string | null {
-  const configured = exoWorkerEnv("LOCAL_PROMPT_FILE");
-  const candidates = configured
-    ? [configured]
-    : [DEFAULT_LOCAL_PROMPT_PATH, LEGACY_LOCAL_PROMPT_PATH];
-  for (const path of candidates) {
-    if (!existsSync(path)) {
-      continue;
-    }
-    const contents = readFileSync(path, "utf8").trim();
-    if (contents.length > 0) {
-      return contents;
-    }
+  const path = exoWorkerEnv("LOCAL_PROMPT_FILE") ?? DEFAULT_LOCAL_PROMPT_PATH;
+  if (!existsSync(path)) {
+    return null;
   }
-  return null;
+  const contents = readFileSync(path, "utf8").trim();
+  return contents.length > 0 ? contents : null;
 }
