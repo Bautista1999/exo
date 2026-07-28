@@ -56,8 +56,6 @@ results so an external host (if any) can mirror progress into its own store.
 | `EXO_WORKER_LOCAL_PROMPT_FILE` | Optional local profile override               |
 | `EXO_WORKER_ENABLE_SCHEDULER`  | `true` to register scheduler tools            |
 
-Legacy `WORKERCLAW_*` names still work when the matching `EXO_WORKER_*` var is unset.
-
 Host deployments may inject additional tool modules via agent `toolModulePaths`
 and mirror OAuth/API credentials into exo conversation secrets — that wiring lives
 outside this repository.

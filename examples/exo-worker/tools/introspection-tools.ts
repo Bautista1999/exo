@@ -5,7 +5,7 @@ import { registerHostTool } from "./host-tools";
 // Read-only introspection over the agent's own history: adapter telemetry
 // from the AdapterStore and the canonical exoharness conversation event log
 // (which host components also write to, e.g. host_reboot when the service
-// guardian restarts the adapter runner). These let Exoclaw diagnose a quiet
+// guardian restarts the adapter runner). These let ExoWorker diagnose a quiet
 // or failing adapter, and reconstruct what happened to it (reboots, drains,
 // errors) without parsing .exo files.
 export function registerIntrospectionTools(

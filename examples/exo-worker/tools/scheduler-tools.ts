@@ -42,7 +42,7 @@ function createScheduleSandboxTaskTool(): ToolInstance {
     definition: {
       name: "schedule_sandbox_task",
       description:
-        "Schedule a recurring command to run in this Exoclaw agent's shared sandbox by default. A host scheduler owns timing and will wake this conversation with compact results when runs complete. Use setupCommand for task-specific setup that should run before each scheduled run.",
+        "Schedule a recurring command to run in this Exo agent's shared sandbox by default. A host scheduler owns timing and will wake this conversation with compact results when runs complete. Use setupCommand for task-specific setup that should run before each scheduled run.",
       parameters: {
         type: "object",
         additionalProperties: false,

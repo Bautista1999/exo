@@ -39,7 +39,7 @@ function listSandboxSnapshotsTool(): ToolInstance {
   return hostTool({
     name: "list_sandbox_snapshots",
     description:
-      "List filesystem snapshots for the current Exoclaw sandbox. Use scope 'agent' or null for the shared persistent agent sandbox; use 'conversation' only when the conversation has its own sandbox.",
+      "List filesystem snapshots for the current Exo sandbox. Use scope 'agent' or null for the shared persistent agent sandbox; use 'conversation' only when the conversation has its own sandbox.",
     parameters: scopeParameters(),
   });
 }
@@ -48,7 +48,7 @@ function snapshotSandboxTool(): ToolInstance {
   return hostTool({
     name: "snapshot_sandbox",
     description:
-      "Capture a filesystem snapshot of the current Exoclaw sandbox so it can be rewound later. Use this before risky edits or experiments.",
+      "Capture a filesystem snapshot of the current Exo sandbox so it can be rewound later. Use this before risky edits or experiments.",
     parameters: scopeParameters(),
   });
 }
@@ -57,7 +57,7 @@ function rewindSandboxTool(): ToolInstance {
   return hostTool({
     name: "rewind_sandbox",
     description:
-      "Rewind the current Exoclaw sandbox to a snapshot returned by list_sandbox_snapshots or snapshot_sandbox. This replaces the live sandbox filesystem state for the selected scope.",
+      "Rewind the current Exo sandbox to a snapshot returned by list_sandbox_snapshots or snapshot_sandbox. This replaces the live sandbox filesystem state for the selected scope.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -90,6 +90,6 @@ function scopeProperty(): ToolDefinition["parameters"] {
     type: ["string", "null"],
     enum: ["agent", "conversation", null],
     description:
-      "Sandbox scope. Use 'agent' or null for Exoclaw's shared persistent agent sandbox; use 'conversation' for this conversation's sandbox.",
+      "Sandbox scope. Use 'agent' or null for Exo's shared persistent agent sandbox; use 'conversation' for this conversation's sandbox.",
   };
 }

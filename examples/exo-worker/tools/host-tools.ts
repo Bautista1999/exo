@@ -5,7 +5,7 @@ import type {
 } from "@exo/harness";
 
 // ExoWorker tools come in two layers: the TypeScript registry defines what the
-// model can see and call, and the Rust tool runtime (ExoclawToolRuntime /
+// model can see and call, and the Rust tool runtime (ExoToolRuntime /
 // execute_tool in crates/executor) executes anything the TypeScript handler
 // delegates to it. A "host tool" is the standard bridge between the two: its
 // definition lives here so the model can discover it, and its handler forwards

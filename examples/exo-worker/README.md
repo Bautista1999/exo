@@ -347,9 +347,6 @@ test (costs tokens); it is not part of `pnpm check`.
 | `EXO_WORKER_E2E_MODEL`            | Optional model override for `pnpm e2e:exo-worker`                            |
 | `EXO_BIN`                         | Optional path to an `exo` binary for the E2E script                          |
 
-Legacy `WORKERCLAW_*` env names are still accepted for one release when the
-corresponding `EXO_WORKER_*` value is unset.
-
 Deployment-specific secrets (API keys, Twilio, OAuth tokens) belong in exo
 secrets or conversation secrets — not in this tree. Use `exo secret set` or
 your host's secret sync before starting adapters or injected tool modules.
