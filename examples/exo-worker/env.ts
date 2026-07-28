@@ -1,15 +1,10 @@
 /**
- * Resolve ExoWorker env vars with one-release WorkerClaw compat fallbacks.
- * Prefer EXO_WORKER_*; fall back to WORKERCLAW_* when unset.
+ * Resolve `EXO_WORKER_<name>` from the environment.
  */
 export function exoWorkerEnv(name: string): string | undefined {
-  const next = process.env[`EXO_WORKER_${name}`];
-  if (next !== undefined && next !== "") {
-    return next;
-  }
-  const legacy = process.env[`WORKERCLAW_${name}`];
-  if (legacy !== undefined && legacy !== "") {
-    return legacy;
+  const value = process.env[`EXO_WORKER_${name}`];
+  if (value !== undefined && value !== "") {
+    return value;
   }
   return undefined;
 }

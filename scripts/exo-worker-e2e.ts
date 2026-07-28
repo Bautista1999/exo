@@ -170,10 +170,7 @@ async function main(): Promise<void> {
 
 function resolveProvider(): ProviderBinding | null {
   const modelOverride =
-    args.model ??
-    process.env.EXO_WORKER_E2E_MODEL?.trim() ??
-    process.env.WORKERCLAW_E2E_MODEL?.trim() ??
-    null;
+    args.model ?? process.env.EXO_WORKER_E2E_MODEL?.trim() ?? null;
 
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return {
