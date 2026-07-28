@@ -32,6 +32,79 @@ info() {
   echo "==> $*"
 }
 
+print_worker_frame() {
+  local line
+  if [[ -t 1 && "${TERM:-}" != "dumb" ]]; then
+    for line in "$@"; do
+      printf '\033[2K\r%s\n' "$line"
+    done
+  else
+    printf '%s\n' "$@"
+  fi
+}
+
+show_worker_banner() {
+  local animated=false
+  if [[ -t 1 && "${TERM:-}" != "dumb" ]]; then
+    animated=true
+  fi
+
+  if [[ "$animated" == true ]]; then
+    local frame
+    for frame in 1 1 2 1 1 2 1 1 2 1; do
+      if [[ "$frame" == 1 ]]; then
+        print_worker_frame \
+          '              .--------.' \
+          '             / .------. \' \
+          '            | |  o  o  | |' \
+          '            | |   __   | |    ((' \
+          '            | '\''--------'\'' |    ))' \
+          '           /|    [EXO]   |\ .----.' \
+          '          /_|            |_\|    |]' \
+          '            |_| |____| |_|  '\''----'\'''
+      else
+        print_worker_frame \
+          '              .--------.' \
+          '             / .------. \' \
+          '            | |  -  -  | |' \
+          '            | |   __   | |    ))' \
+          '            | '\''--------'\'' |    ((' \
+          '           /|    [EXO]   |\ .----.' \
+          '          /_|            |_\|    |]' \
+          '            |_| |____| |_|  '\''----'\'''
+      fi
+      sleep 0.16
+      printf '\033[8A'
+    done
+  fi
+
+  print_worker_frame \
+    '              .--------.' \
+    '             / .------. \' \
+    '            | |  o  o  | |' \
+    '            | |   __   | |   ((' \
+    '            | '\''--------'\'' |    ))' \
+    '           /|    [EXO]   |\ .----.' \
+    '          /_|            |_\|    |]' \
+    '            |_| |____| |_|  '\''----'\'''
+
+  printf '\n'
+  if [[ -t 1 && "${TERM:-}" != "dumb" && -z "${NO_COLOR:-}" ]]; then
+    printf '\033[1m'
+  fi
+  printf ' _____ __  __  ___        __        _____  ____  _  _______ ____  \n'
+  printf '| ____|\\ \\/ / / _ \\       \\ \\      / / _ \\|  _ \\| |/ / ____|  _ \\ \n'
+  printf '|  _|   \\  / | | | | _____ \\ \\ /\\ / / | | | |_) | '\'' /|  _| | |_) |\n'
+  printf '| |___  /  \\ | |_| ||_____| \\ V  V /| |_| |  _ <| . \\| |___|  _ < \n'
+  printf '|_____|/_/\\_\\ \\___/          \\_/\\_/  \\___/|_| \\_\\_|\\_\\_____|_| \\_\\\n'
+  if [[ -t 1 && "${TERM:-}" != "dumb" && -z "${NO_COLOR:-}" ]]; then
+    printf '\033[0m'
+    printf '\n                              \033[3mPowered by Exo\033[0m\n\n'
+  else
+    printf '\n                              Powered by Exo\n\n'
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -232,6 +305,7 @@ prompt_env_secret() {
   done
 }
 
+show_worker_banner
 echo "ExoWorker setup"
 echo "Checkout: $REPO_ROOT"
 echo "Module:   $EXO_MODULE"
