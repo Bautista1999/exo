@@ -127,13 +127,16 @@ examples/exo-worker/
   turn-loop-nudge.ts         Text-only nudge helpers
   message-materialize.ts     Conversation history → model messages
   prompts/me.md              Committed identity and operating rules
-  task-tree-tools.ts         Task tree + deliverable + complete_task tools
-  task-tree-snapshot.ts      task-tree.json artifact read/write + finish checks
-  tool-args.ts               Unwrap nested harness tool-arg envelopes
-  introspection-tools.ts     list_adapter_events, list_conversation_events
-  sandbox-tools.ts           Snapshot and rewind for the agent sandbox
-  scheduler-tools.ts         Recurring tasks (optional; see env below)
-  host-tools.ts              Bridge from TypeScript tool defs to Rust host tools
+  tools/                      ExoWorker-owned tool modules and helpers
+    task-tree-tools.ts       Task tree + deliverable + complete_task tools
+    task-tree-snapshot.ts    task-tree.json artifact read/write + finish checks
+    introspection-tools.ts   list_adapter_events, list_conversation_events
+    sandbox-tools.ts         Snapshot and rewind for the agent sandbox
+    scheduler-tools.ts       Recurring tasks (optional; see env below)
+    memory-tools.ts          remember / forget and memory prompt injection
+    host-tools.ts            Bridge from TypeScript defs to Rust host tools
+    tool-args.ts             Unwrap nested harness tool-arg envelopes
+    fal/                     FAL image-generation tool module
   SELF.md                    Map of important paths for self-inspection
 ```
 

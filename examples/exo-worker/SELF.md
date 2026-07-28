@@ -16,11 +16,11 @@ Use this map before changing ExoWorker itself.
 - `examples/exo-worker/setup.sh`: configure ExoWorker in this checkout (no reinstall).
 - `examples/exo-worker/exo-worker.sh`: launch ExoWorker via root `exo.sh` with correct defaults.
 - `examples/exo-worker/prompts/me.md`: durable identity and operating rules.
-- `examples/exo-worker/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/exo-worker-memory.json`).
-- `examples/exo-worker/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.
-- `examples/exo-worker/introspection-tools.ts`: adapter and conversation introspection.
-- `examples/exo-worker/sandbox-tools.ts`: sandbox snapshot and rewind tools.
-- `examples/exo-worker/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
+- `examples/exo-worker/tools/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/exo-worker-memory.json`).
+- `examples/exo-worker/tools/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.
+- `examples/exo-worker/tools/introspection-tools.ts`: adapter and conversation introspection.
+- `examples/exo-worker/tools/sandbox-tools.ts`: sandbox snapshot and rewind tools.
+- `examples/exo-worker/tools/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
 - `typescript/harness/skill-tools.ts`: `install_skill` / `use_skill` / `list_skills` / `uninstall_skill` (agent artifacts).
 - `typescript/harness/adapter-tools.ts`: model-visible adapter tools (`create_adapter`, …).
 - `examples/exo/adapters/`: shipped library adapter workers — ExoWorker reuses these via `registerAdapterTools` (no local copy).

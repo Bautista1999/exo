@@ -36,7 +36,7 @@ import {
   DEFAULT_ROUND_BUDGET_EXTENSIONS,
   isTaskTreeFinished,
   readTaskTreeSnapshot,
-} from "./task-tree-snapshot.js";
+} from "./tools/task-tree-snapshot.js";
 
 export interface ExoWorkerTurnLoopOptions {
   instructions?: (context: TurnContext) => Message[] | Promise<Message[]>;

@@ -15,12 +15,15 @@ import {
   type TurnContext,
 } from "@exo/harness";
 
-import { registerIntrospectionTools } from "./introspection-tools";
-import { registerSandboxTools } from "./sandbox-tools";
-import { registerTaskTreeTools } from "./task-tree-tools";
-import { registerSchedulerTools } from "./scheduler-tools";
+import { registerIntrospectionTools } from "./tools/introspection-tools.js";
+import { registerSandboxTools } from "./tools/sandbox-tools.js";
+import { registerTaskTreeTools } from "./tools/task-tree-tools.js";
+import { registerSchedulerTools } from "./tools/scheduler-tools.js";
 import { exoWorkerEnv, exoWorkerEnvFlag } from "./env.js";
-import { memoryInstruction, registerMemoryTools } from "./memory-tools.js";
+import {
+  memoryInstruction,
+  registerMemoryTools,
+} from "./tools/memory-tools.js";
 import {
   basicHarnessInstructions,
   defaultBuiltInToolNames,
