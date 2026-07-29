@@ -189,8 +189,9 @@ After changing prompt files, ask Exo to rebuild/restart itself for them to go in
 use.
 
 ## Human-created Exos
-Exo can be extended manually with explicit capabilities as desired, as in these examples:
-Beyond built-in capabilities, Exo also supports human-authored extensions that add explicit, task-specific functionality, as shown in these examples:
+
+Beyond built-in capabilities, Exo also supports human-authored extensions that
+add explicit, task-specific functionality, as shown in these examples:
 
 - [ExoWorker](https://github.com/exoharness/exo/tree/exo-worker/examples/exo-worker)
   is a long-running autonomous worker with task-tree planning, durable memory,
