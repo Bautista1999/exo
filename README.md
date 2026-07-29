@@ -51,17 +51,6 @@ For a more complete description of the architectural philosophy read
 
 <!-- ![Exo playinb pokemon go](docs/images/exo_playing.gif) -->
 
-## Human-created Exos
-
-- [ExoWorker](https://github.com/exoharness/exo/tree/exo-worker/examples/exo-worker)
-  is a long-running autonomous worker with task-tree planning, durable memory,
-  adapters, scheduling, and host-injected tools.
-- [Gameboy Agent](examples/gameboy-agent/) gives Exo an emulator sidecar and
-  tools for playing Game Boy games.
-
-Building your own Exo? Share it with us on
-[Discord](https://discord.gg/8x23hdBJU6).
-
 ## Quick Start
 
 Exo was designed to be incredibly simple to use. With just a few commands you
@@ -198,6 +187,19 @@ There are a number of prompt files that Exo uses during runtime. You can edit th
 
 After changing prompt files, ask Exo to rebuild/restart itself for them to go in
 use.
+
+## Human-created Exos
+Exo can be extended manually with explicit capabilities as desired, as in these examples:
+Beyond built-in capabilities, Exo also supports human-authored extensions that add explicit, task-specific functionality, as shown in these examples:
+
+- [ExoWorker](https://github.com/exoharness/exo/tree/exo-worker/examples/exo-worker)
+  is a long-running autonomous worker with task-tree planning, durable memory,
+  adapters, scheduling, and host-injected tools.
+- [Gameboy Agent](examples/gameboy-agent/) gives Exo an emulator sidecar and
+  tools for playing Game Boy games.
+
+Building your own Exo? Share it with us on
+[Discord](https://discord.gg/8x23hdBJU6).
 
 ## Ongoing Work
 
