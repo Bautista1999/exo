@@ -202,6 +202,11 @@ ExoWorker registers tools in layers (`harness.ts`):
 - `shell` — run commands in the agent sandbox
 - `install_agent_tool` / `uninstall_agent_tool` when agent tool creation is enabled
 
+Installed agent tools are TypeScript modules on disk. By default they live under
+`.exo/agent-tools` relative to the process working directory. Hosts that run
+multiple agents against one exo root can set `EXO_AGENT_TOOLS_DIR` to an
+absolute directory so each agent gets an isolated tools folder; install,
+uninstall, and registration all honor that path.
 **Task tree** — see above.
 
 **Adapters:**
@@ -347,16 +352,17 @@ Put provider keys and ExoWorker flags in the **exo repository root** `.env`
 the `exo` CLI load that file when you run from the checkout root. You can also
 export the same variables in your shell before launch.
 
-| Variable                          | Purpose                                                                      |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| `EXO_WORKER_REPO`                 | Sandbox mount path to this repo (default `/workspace/exo`)                   |
-| `EXO_WORKER_SELF_MAP`             | Path to `SELF.md` inside the mount                                           |
-| `EXO_WORKER_LOCAL_PROMPT_FILE`    | Optional local profile (default `.exo/exo-worker-profile.md`)                |
-| `EXO_WORKER_ENABLE_SCHEDULER`     | Set to `true` to register scheduler tools                                    |
-| `EXO_WORKER_ENABLE_FAL`           | Set to `true` to register `fal_generate_image` (also needs `FAL_KEY`)        |
-| `EXO_WORKER_MAX_TEXT_ONLY_NUDGES` | Max developer nudges on text-only exits before `complete_task` (default `3`) |
-| `EXO_WORKER_E2E_MODEL`            | Optional model override for `pnpm e2e:exo-worker`                            |
-| `EXO_BIN`                         | Optional path to an `exo` binary for the E2E script                          |
+| Variable                          | Purpose                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `EXO_WORKER_REPO`                 | Sandbox mount path to this repo (default `/workspace/exo`)                          |
+| `EXO_WORKER_SELF_MAP`             | Path to `SELF.md` inside the mount                                                  |
+| `EXO_WORKER_LOCAL_PROMPT_FILE`    | Optional local profile (default `.exo/exo-worker-profile.md`)                       |
+| `EXO_WORKER_ENABLE_SCHEDULER`     | Set to `true` to register scheduler tools                                           |
+| `EXO_WORKER_ENABLE_FAL`           | Set to `true` to register `fal_generate_image` (also needs `FAL_KEY`)               |
+| `EXO_WORKER_MAX_TEXT_ONLY_NUDGES` | Max developer nudges on text-only exits before `complete_task` (default `3`)        |
+| `EXO_WORKER_E2E_MODEL`            | Optional model override for `pnpm e2e:exo-worker`                                   |
+| `EXO_BIN`                         | Optional path to an `exo` binary for the E2E script                                 |
+| `EXO_AGENT_TOOLS_DIR`             | Optional absolute dir for `install_agent_tool` modules (default `.exo/agent-tools`) |
 
 `FAL_KEY` is a host/provider secret (same root `.env` or shell), not an
 `EXO_WORKER_*` flag.
