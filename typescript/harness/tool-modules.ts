@@ -15,6 +15,12 @@ import {
 export const DEFAULT_AGENT_TOOL_DIRECTORY = ".exo/agent-tools";
 let agentToolImportVersion = 0;
 
+/** Prefer EXO_AGENT_TOOLS_DIR so hosts can isolate agent tools per deployment/worker. */
+export function resolveAgentToolsDirectory(): string {
+  const fromEnv = process.env.EXO_AGENT_TOOLS_DIR?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_AGENT_TOOL_DIRECTORY;
+}
+
 export interface ToolModule {
   tools: ToolModuleEntry[];
 }
