@@ -10,9 +10,9 @@ import type {
 } from "./index";
 import type { HarnessToolRegistry, ToolInstance } from "./tools";
 import {
-  DEFAULT_AGENT_TOOL_DIRECTORY,
   findAgentToolNameConflict,
   loadAgentTool,
+  resolveAgentToolsDirectory,
 } from "./tool-modules";
 
 export type BuiltInToolName =
@@ -199,7 +199,7 @@ async function uninstallAgentTool(args: JsonObject): Promise<ToolResult> {
       "agent tool name must contain only letters, numbers, underscores, and dashes",
     );
   }
-  const toolsDirectory = DEFAULT_AGENT_TOOL_DIRECTORY;
+  const toolsDirectory = resolveAgentToolsDirectory();
   const modulePath = path.join(toolsDirectory, `${name}.ts`);
   const sourcePath = path.join(toolsDirectory, `${name}.source.ts`);
   const existed = await fs
@@ -229,7 +229,7 @@ async function installAgentTool(
   const initialization = compactInitialization(
     objectArgument(args, "initialization"),
   );
-  const toolsDirectory = DEFAULT_AGENT_TOOL_DIRECTORY;
+  const toolsDirectory = resolveAgentToolsDirectory();
   const modulePath = path.join(toolsDirectory, `${name}.ts`);
   const sourcePath = path.join(toolsDirectory, `${name}.source.ts`);
   const tempDirectory = path.join(toolsDirectory, ".tmp");

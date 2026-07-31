@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { toolResultMessage, type Event, type Message } from "@exo/harness";
+import { linguaMessagesToResponsesInput } from "@exo/model-runtime/responses";
 
 import {
   hydrateToolResultsForVision,
   materializeExoWorkerEventsToMessages,
   repairLinguaToolPairing,
+  splitAssistantToolCallsForResponses,
   stripReasoningParts,
 } from "./message-materialize.js";
 
@@ -424,6 +426,59 @@ describe("stripReasoningParts", () => {
         ok: false,
         error: "tool result missing from event log; synthesized by ExoWorker",
       }),
+    ]);
+  });
+});
+
+describe("splitAssistantToolCallsForResponses", () => {
+  const toolCall = (id: string, name: string) => ({
+    type: "tool_call",
+    tool_call_id: id,
+    tool_name: name,
+    arguments: { type: "valid", value: {} },
+  });
+
+  it("preserves every parallel call in Responses input", () => {
+    const messages: Message[] = [
+      {
+        role: "assistant",
+        content: [
+          toolCall("call_a", "use_skill"),
+          toolCall("call_b", "executeCommand"),
+        ],
+      },
+    ];
+
+    const input = linguaMessagesToResponsesInput(
+      splitAssistantToolCallsForResponses(messages),
+    );
+    const callIds = input
+      .filter((item) => (item as { type?: string }).type === "function_call")
+      .map((item) => (item as { call_id?: string }).call_id);
+
+    expect(callIds).toEqual(["call_a", "call_b"]);
+  });
+
+  it("separates assistant text from a tool call", () => {
+    const messages: Message[] = [
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Checking the workspace." },
+          toolCall("call_a", "executeCommand"),
+        ],
+      },
+    ];
+
+    expect(splitAssistantToolCallsForResponses(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "Checking the workspace." }],
+      },
+      {
+        role: "assistant",
+        content: [toolCall("call_a", "executeCommand")],
+      },
     ]);
   });
 });

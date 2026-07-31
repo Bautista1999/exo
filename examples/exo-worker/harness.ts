@@ -73,7 +73,11 @@ async function registerExoWorkerTools(
     await registerExoWorkerToolModule(tools, context, modulePath);
   }
   if (context.agentConfig.enableAgentToolCreation) {
-    await registerAgentToolsFromDirectoryIfExists(tools, context);
+    await registerAgentToolsFromDirectoryIfExists(
+      tools,
+      context,
+      process.env.EXO_AGENT_TOOLS_DIR?.trim() || undefined,
+    );
   }
 }
 
