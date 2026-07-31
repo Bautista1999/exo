@@ -13,6 +13,8 @@ import {
   type TurnContext,
 } from "@exo/harness";
 import {
+  isOpenRouterBinding,
+  modelRequiresResponsesApi,
   responseToLinguaEvents,
   responseToolCalls,
   runtimeFromModelBinding,
@@ -22,7 +24,10 @@ import {
 } from "@exo/model-runtime/responses";
 import { ensureTable } from "@exo/model-runtime/cost";
 
-import { materializeExoWorkerPromptMessages } from "./message-materialize.js";
+import {
+  materializeExoWorkerPromptMessages,
+  splitAssistantToolCallsForResponses,
+} from "./message-materialize.js";
 import {
   buildTextOnlyNudgeMessage,
   extractAssistantTextFromEvents,
@@ -53,12 +58,16 @@ export async function runExoWorkerHarnessTurn(
   await ensureTable();
   const modelBinding = await resolveLlmBinding(context);
   const runtime = runtimeFromModelBinding(context.agentConfig, modelBinding);
+  const usesResponsesApi =
+    modelRequiresResponsesApi(modelBinding.model) &&
+    !isOpenRouterBinding(modelBinding);
   await runtime.runTurn(context, (turnParent) =>
     runExoWorkerTurnLoop(
       runtime,
       context,
       turnParent,
       modelBinding.model,
+      usesResponsesApi,
       options,
     ),
   );
@@ -99,6 +108,7 @@ async function runExoWorkerTurnLoop(
   context: TurnContext,
   turnParent: TraceParent,
   model: string,
+  usesResponsesApi: boolean,
   options: ExoWorkerTurnLoopOptions,
 ): Promise<string | null> {
   const { conversation } = context.exoharness.current;
@@ -161,12 +171,15 @@ async function runExoWorkerTurnLoop(
       }
     }
 
-    const messages = await materializeExoWorkerPromptMessages(
+    let messages = await materializeExoWorkerPromptMessages(
       conversation,
       options.instructions
         ? await options.instructions(context)
         : basicHarnessInstructions(context),
     );
+    if (usesResponsesApi) {
+      messages = splitAssistantToolCallsForResponses(messages);
+    }
     const request: NativeResponsesRequest = {
       model,
       messages,

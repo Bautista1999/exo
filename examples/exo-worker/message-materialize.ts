@@ -73,6 +73,52 @@ export function stripReasoningParts(messages: Message[]): Message[] {
   return out;
 }
 
+/**
+ * Lingua converts one assistant message into one Responses item. ExoWorker's
+ * Chat-compatible materialization coalesces parallel tool calls into one
+ * assistant message, so split that message back into one item per call before
+ * sending history to the Responses API.
+ *
+ * @internal exported for tests
+ */
+export function splitAssistantToolCallsForResponses(
+  messages: Message[],
+): Message[] {
+  return messages.flatMap((message): Message[] => {
+    if (message.role !== "assistant" || !Array.isArray(message.content)) {
+      return [message];
+    }
+
+    const toolCalls = message.content.filter(isToolCallPart);
+    if (toolCalls.length === 0) {
+      return [message];
+    }
+
+    const otherParts = message.content.filter((part) => !isToolCallPart(part));
+    if (toolCalls.length === 1 && otherParts.length === 0) {
+      return [message];
+    }
+
+    const { id: _id, ...messageWithoutId } = message;
+    return [
+      ...(otherParts.length > 0
+        ? [{ ...messageWithoutId, content: otherParts } as Message]
+        : []),
+      ...toolCalls.map(
+        (toolCall) => ({ ...messageWithoutId, content: [toolCall] }) as Message,
+      ),
+    ];
+  });
+}
+
+function isToolCallPart(part: unknown): boolean {
+  return (
+    Boolean(part) &&
+    typeof part === "object" &&
+    (part as { type?: string }).type === "tool_call"
+  );
+}
+
 export async function materializeExoWorkerConversationMessages(
   conversation: Conversation,
 ): Promise<Message[]> {
