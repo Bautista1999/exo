@@ -22,6 +22,10 @@ import {
  *   rehydrate once, attach real image parts, strip all base64 from the JSON.
  * - Older history: never rehydrate artifacts; strip every base64 payload so the
  *   model does not re-read the same image bytes on later rounds.
+ *
+ * After vision strip/hydrate, tool-result JSON is size-capped so a single
+ * runaway dump (shell stdout, HTML, rehydrated artifact) cannot poison the
+ * prompt. Trailing (latest) results get a higher budget; history is tighter.
  */
 
 const IMAGE_BASE64_KEYS = new Set([
@@ -32,6 +36,15 @@ const IMAGE_BASE64_KEYS = new Set([
 
 /** Strings longer than this that look like base64 are dropped from prompts. */
 const BASE64_STRIP_MIN_CHARS = 256;
+
+/**
+ * Char budget for tool-result JSON still awaiting an assistant reply.
+ * ~8–10K tokens worst case; enough for real shell/logs, not multi‑MB dumps.
+ */
+export const LATEST_TOOL_RESULT_CHAR_CAP = 32_000;
+
+/** Char budget for tool-result JSON the model has already seen. */
+export const HISTORY_TOOL_RESULT_CHAR_CAP = 4_000;
 
 export async function materializeExoWorkerPromptMessages(
   conversation: Conversation,
@@ -132,8 +145,10 @@ export async function materializeExoWorkerConversationMessages(
 /**
  * Prepare tool results for the next model call.
  *
- * Fresh trailing tool results: rehydrate + attach images once.
- * Historical tool results: strip base64 entirely; do not re-read artifacts.
+ * Fresh trailing tool results: rehydrate + attach images once, then cap at
+ * {@link LATEST_TOOL_RESULT_CHAR_CAP}.
+ * Historical tool results: strip base64 (no artifact re-read), then cap at
+ * {@link HISTORY_TOOL_RESULT_CHAR_CAP}.
  */
 export async function hydrateToolResultsForVision(
   conversation: Conversation,
@@ -213,7 +228,10 @@ export async function hydrateToolResultsForVision(
         });
         newContent.push({
           ...p,
-          output: slim,
+          output: capToolOutputForPrompt(slim, LATEST_TOOL_RESULT_CHAR_CAP, {
+            keepHead: 24_000,
+            keepTail: 4_000,
+          }),
         });
         for (const image of images) {
           pendingImages.push({
@@ -227,7 +245,11 @@ export async function hydrateToolResultsForVision(
         // Historical: never rehydrate full artifacts — strip whatever is inline.
         newContent.push({
           ...p,
-          output: stripToolOutputForHistory(p.output),
+          output: capToolOutputForPrompt(
+            stripToolOutputForHistory(p.output),
+            HISTORY_TOOL_RESULT_CHAR_CAP,
+            { keepHead: 3_000, keepTail: 500 },
+          ),
         });
       }
     }
@@ -237,6 +259,52 @@ export async function hydrateToolResultsForVision(
 
   flushImages();
   return out;
+}
+
+/**
+ * Bound tool-result JSON for the prompt. Under the cap the original value is
+ * returned unchanged; over the cap we keep head + tail of the serialized form
+ * so the model still sees the start and end of large dumps.
+ */
+export function capToolOutputForPrompt(
+  output: unknown,
+  maxChars: number,
+  opts: { keepHead?: number; keepTail?: number } = {},
+): unknown {
+  const serialized = safeSerializeToolOutput(output);
+  if (serialized.length <= maxChars) return output;
+
+  const noteOverhead = 80;
+  let keepHead = opts.keepHead ?? Math.floor(maxChars * 0.75);
+  let keepTail = opts.keepTail ?? Math.floor(maxChars * 0.125);
+  if (keepHead + keepTail + noteOverhead > maxChars) {
+    keepTail = Math.min(keepTail, Math.floor(maxChars * 0.125));
+    keepHead = Math.max(0, maxChars - keepTail - noteOverhead);
+  }
+
+  const omitted = Math.max(0, serialized.length - keepHead - keepTail);
+  const head = serialized.slice(0, keepHead);
+  const tail = keepTail > 0 ? serialized.slice(-keepTail) : "";
+  const preview =
+    keepTail > 0
+      ? `${head}\n…[${omitted} chars truncated]…\n${tail}`
+      : `${head}\n…[${omitted} chars truncated]…`;
+
+  return {
+    truncated: true,
+    originalChars: serialized.length,
+    preview,
+    note: `Tool result truncated from ${serialized.length} chars (cap ${maxChars}).`,
+  };
+}
+
+function safeSerializeToolOutput(output: unknown): string {
+  if (typeof output === "string") return output;
+  try {
+    return JSON.stringify(output) ?? "";
+  } catch {
+    return String(output);
+  }
 }
 
 /**
