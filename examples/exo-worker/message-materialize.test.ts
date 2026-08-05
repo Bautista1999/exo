@@ -6,7 +6,10 @@ import { linguaMessagesToResponsesInput } from "@exo/model-runtime/responses";
 import {
   HISTORY_TOOL_RESULT_CHAR_CAP,
   LATEST_TOOL_RESULT_CHAR_CAP,
+  MAX_VISION_IMAGES_PER_ROUND,
+  budgetVisionImages,
   capToolOutputForPrompt,
+  estimateDecodedImageBytes,
   hydrateToolResultsForVision,
   materializeExoWorkerEventsToMessages,
   repairLinguaToolPairing,
@@ -217,6 +220,43 @@ describe("repairLinguaToolPairing", () => {
         error: "tool result missing from event log; synthesized by ExoWorker",
       }),
     ]);
+  });
+});
+
+describe("budgetVisionImages", () => {
+  it("omits images over the decoded byte budget", () => {
+    const huge = "A".repeat(2_000_000); // ~1.5MB decoded
+    const decisions = budgetVisionImages(
+      [
+        {
+          toolName: "screenshotUrl",
+          base64: huge,
+          mediaType: "image/png",
+        },
+      ],
+      { maxBytes: 100_000 },
+    );
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.action).toBe("omit");
+    expect(estimateDecodedImageBytes(huge)).toBeGreaterThan(100_000);
+  });
+
+  it("caps the number of attaches per round", () => {
+    const small = Buffer.from("tiny-png").toString("base64");
+    const images = Array.from(
+      { length: MAX_VISION_IMAGES_PER_ROUND + 2 },
+      (_, i) => ({
+        toolName: "previewPresentation",
+        base64: small,
+        mediaType: "image/png",
+        label: `slide ${i + 1}`,
+      }),
+    );
+    const decisions = budgetVisionImages(images);
+    const attached = decisions.filter((d) => d.action === "attach");
+    const omitted = decisions.filter((d) => d.action === "omit");
+    expect(attached).toHaveLength(MAX_VISION_IMAGES_PER_ROUND);
+    expect(omitted).toHaveLength(2);
   });
 });
 

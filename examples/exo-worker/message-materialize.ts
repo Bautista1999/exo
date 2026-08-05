@@ -8,6 +8,8 @@ import {
   type ToolResult,
 } from "@exo/harness";
 
+import { applyCompressionMarkerWindow } from "./context-compress.js";
+
 /**
  * ExoWorker-local conversation materialization.
  *
@@ -46,6 +48,26 @@ export const LATEST_TOOL_RESULT_CHAR_CAP = 32_000;
 /** Char budget for tool-result JSON the model has already seen. */
 export const HISTORY_TOOL_RESULT_CHAR_CAP = 4_000;
 
+/** Max vision image attaches per trailing tool round. */
+export const MAX_VISION_IMAGES_PER_ROUND = 4;
+
+/**
+ * Max decoded image bytes (~750KB) for a single vision attach. Base64 is
+ * ~4/3 of this. Over the limit we keep a text note instead of attaching.
+ */
+export const MAX_VISION_IMAGE_BYTES = 750_000;
+
+export type VisionImageCandidate = {
+  toolName: string;
+  base64: string;
+  mediaType: string;
+  label?: string;
+};
+
+export type VisionImageDecision =
+  | { action: "attach"; image: VisionImageCandidate }
+  | { action: "omit"; reason: string; toolName: string; label?: string };
+
 export async function materializeExoWorkerPromptMessages(
   conversation: Conversation,
   instructions: Message[],
@@ -56,10 +78,13 @@ export async function materializeExoWorkerPromptMessages(
   // Coalescing those into one message makes Lingua reject the request
   // ("Mixed reasoning and other content parts"). Drop reasoning on replay —
   // encrypted_content cannot be reused with store:false anyway.
-  return [
-    ...instructions,
-    ...repairLinguaToolPairing(stripReasoningParts(withVision)),
-  ];
+  //
+  // If a prior round persisted [COMPRESSED PRIOR WORK], drop older history
+  // before that marker (client request is kept — see applyCompressionMarkerWindow).
+  const historyForPrompt = applyCompressionMarkerWindow(
+    repairLinguaToolPairing(stripReasoningParts(withVision)),
+  );
+  return [...instructions, ...historyForPrompt];
 }
 
 /** @internal exported for tests */
@@ -155,33 +180,50 @@ export async function hydrateToolResultsForVision(
   messages: Message[],
 ): Promise<Message[]> {
   const out: Message[] = [];
-  const pendingImages: Array<{
-    toolName: string;
-    base64: string;
-    mediaType: string;
-    label?: string;
-  }> = [];
+  const pendingImages: VisionImageCandidate[] = [];
   const latestToolIndices = findTrailingToolMessageIndices(messages);
 
   const flushImages = () => {
-    for (const img of pendingImages) {
-      const label = img.label ? ` (${img.label})` : "";
+    if (pendingImages.length === 0) return;
+    const decisions = budgetVisionImages(pendingImages);
+    for (const decision of decisions) {
+      if (decision.action === "attach") {
+        const img = decision.image;
+        const label = img.label ? ` (${img.label})` : "";
+        out.push({
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text:
+                `Visual result of the previous \`${img.toolName}\` tool call${label}. ` +
+                `Inspect this image carefully — do not claim you can see it unless you use this attachment.`,
+            },
+            {
+              type: "image",
+              image: img.base64,
+              media_type: img.mediaType,
+            },
+          ],
+        });
+        continue;
+      }
+      const label = decision.label ? ` (${decision.label})` : "";
       out.push({
         role: "user",
         content: [
           {
             type: "text",
             text:
-              `Visual result of the previous \`${img.toolName}\` tool call${label}. ` +
-              `Inspect this image carefully — do not claim you can see it unless you use this attachment.`,
-          },
-          {
-            type: "image",
-            image: img.base64,
-            media_type: img.mediaType,
+              `Visual result of \`${decision.toolName}\`${label} was not attached: ${decision.reason}. ` +
+              `Re-run the tool with a smaller capture if you need to inspect it.`,
           },
         ],
       });
+      console.warn(
+        `[exo-worker] skipped vision attach tool=${decision.toolName}` +
+          `${label}: ${decision.reason}`,
+      );
     }
     pendingImages.length = 0;
   };
@@ -305,6 +347,60 @@ function safeSerializeToolOutput(output: unknown): string {
   } catch {
     return String(output);
   }
+}
+
+/**
+ * Apply per-round vision budget: max image count + max decoded bytes each.
+ * Oversized / excess images become text-only notes (no downscale library).
+ */
+export function budgetVisionImages(
+  images: VisionImageCandidate[],
+  opts: {
+    maxImages?: number;
+    maxBytes?: number;
+  } = {},
+): VisionImageDecision[] {
+  const maxImages = opts.maxImages ?? MAX_VISION_IMAGES_PER_ROUND;
+  const maxBytes = opts.maxBytes ?? MAX_VISION_IMAGE_BYTES;
+  const decisions: VisionImageDecision[] = [];
+  let attached = 0;
+
+  for (const image of images) {
+    if (attached >= maxImages) {
+      decisions.push({
+        action: "omit",
+        toolName: image.toolName,
+        label: image.label,
+        reason: `round vision budget exceeded (max ${maxImages} images)`,
+      });
+      continue;
+    }
+    const bytes = estimateDecodedImageBytes(image.base64);
+    if (bytes > maxBytes) {
+      decisions.push({
+        action: "omit",
+        toolName: image.toolName,
+        label: image.label,
+        reason: `image too large (~${Math.round(bytes / 1024)}KB > max ${Math.round(maxBytes / 1024)}KB)`,
+      });
+      continue;
+    }
+    decisions.push({ action: "attach", image });
+    attached += 1;
+  }
+  return decisions;
+}
+
+/** Approximate decoded byte size from a base64 (or data-URL) payload. */
+export function estimateDecodedImageBytes(base64OrDataUrl: string): number {
+  let b64 = base64OrDataUrl.trim();
+  if (b64.startsWith("data:")) {
+    const comma = b64.indexOf(",");
+    if (comma >= 0) b64 = b64.slice(comma + 1);
+  }
+  b64 = b64.replace(/\s+/g, "");
+  const padding = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((b64.length * 3) / 4) - padding);
 }
 
 /**
