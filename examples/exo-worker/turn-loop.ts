@@ -25,6 +25,15 @@ import {
 import { ensureTable } from "@exo/model-runtime/cost";
 
 import {
+  compressMessagesIfNeeded,
+  DEFAULT_MAX_OUTPUT_TOKENS,
+} from "./context-compress.js";
+import {
+  isContextWindowError,
+  learnContextWindowTokens,
+  parseContextWindowFromError,
+} from "./context-window.js";
+import {
   materializeExoWorkerPromptMessages,
   splitAssistantToolCallsForResponses,
 } from "./message-materialize.js";
@@ -42,6 +51,9 @@ import {
   isTaskTreeFinished,
   readTaskTreeSnapshot,
 } from "./tools/task-tree-snapshot.js";
+
+/** Custom event type for provider prompt usage (host may mirror to its UI). */
+export const PROMPT_USAGE_EVENT_TYPE = "exo_worker.prompt_usage";
 
 export interface ExoWorkerTurnLoopOptions {
   instructions?: (context: TurnContext) => Message[] | Promise<Message[]>;
@@ -118,6 +130,8 @@ async function runExoWorkerTurnLoop(
   let budgetExtensions = 0;
   let completeTaskCalled = false;
   let textOnlyNudgesUsed = 0;
+  /** Exact provider prompt tokens from the previous successful model round. */
+  let lastProviderPromptTokens: number | null = null;
 
   for (let round = 0; ; round += 1) {
     if (
@@ -180,6 +194,26 @@ async function runExoWorkerTurnLoop(
     if (usesResponsesApi) {
       messages = splitAssistantToolCallsForResponses(messages);
     }
+
+    const maxOutputTokens =
+      context.agentConfig.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
+    const summarize = (prompt: string) =>
+      summarizeViaRuntime(runtime, model, prompt, turnParent, round);
+    const persistMarker = async (marker: Message) => {
+      latestEventId = await appendTurnEvents(context, [
+        messagesEvent([marker]),
+      ]);
+    };
+
+    const compressed = await compressMessagesIfNeeded(messages, {
+      model,
+      maxOutputTokens,
+      summarize,
+      persistMarker,
+      lastProviderPromptTokens,
+    });
+    messages = compressed.messages;
+
     const request: NativeResponsesRequest = {
       model,
       messages,
@@ -188,22 +222,64 @@ async function runExoWorkerTurnLoop(
       metadata: turnMetadata(context),
     };
 
-    const response = context.streaming
-      ? await runtime.completeStream(
-          request,
-          {
-            onFirstChunk: (ttftMs) => context.stream.firstChunk(ttftMs),
-            onTextDelta: (text) => context.stream.text(text),
-          },
-          {
-            parent: turnParent,
-            roundIndex: round,
-          },
-        )
-      : await runtime.complete(request, {
-          parent: turnParent,
-          roundIndex: round,
-        });
+    let response;
+    try {
+      response = await completeModelRound(
+        runtime,
+        context,
+        request,
+        turnParent,
+        round,
+      );
+    } catch (err) {
+      if (!isContextWindowError(err)) throw err;
+      const parsed = parseContextWindowFromError(err);
+      if (parsed) learnContextWindowTokens(model, parsed);
+      console.warn(
+        `[exo-worker] context window exceeded — forcing compression and retrying` +
+          (parsed ? ` (learned limit=${parsed})` : ""),
+      );
+      const forced = await compressMessagesIfNeeded(messages, {
+        model,
+        maxOutputTokens,
+        summarize,
+        persistMarker,
+        lastProviderPromptTokens,
+        force: true,
+        budgets: parsed
+          ? {
+              contextWindowTokens: parsed,
+              usableInputTokens: Math.max(
+                1_000,
+                parsed - maxOutputTokens - 4_000,
+              ),
+              thresholdTokens: 0,
+              targetTokens: Math.floor(
+                Math.max(1_000, parsed - maxOutputTokens - 4_000) * 0.25,
+              ),
+            }
+          : { thresholdTokens: 0 },
+      });
+      if (!forced.compressed) {
+        throw err;
+      }
+      messages = forced.messages;
+      response = await completeModelRound(
+        runtime,
+        context,
+        { ...request, messages },
+        turnParent,
+        round,
+      );
+    }
+
+    const providerUsage = extractProviderUsage(response);
+    if (providerUsage) {
+      lastProviderPromptTokens = providerUsage.promptTokens;
+      latestEventId = await appendTurnEvents(context, [
+        promptUsageEvent(providerUsage, model),
+      ]);
+    }
 
     const events = responseToLinguaEvents(response);
     if (events.length > 0) {
@@ -279,4 +355,85 @@ async function appendTurnEvents(
   data: EventData[],
 ): Promise<string> {
   return (await context.exoharness.current.turn.addEvents(data)).latestEventId;
+}
+
+export function extractProviderUsage(response: {
+  usage?: {
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+  } | null;
+}): { promptTokens: number; completionTokens?: number } | null {
+  const input = response.usage?.input_tokens;
+  if (typeof input !== "number" || !Number.isFinite(input) || input < 0) {
+    return null;
+  }
+  const output = response.usage?.output_tokens;
+  return {
+    promptTokens: input,
+    completionTokens:
+      typeof output === "number" && Number.isFinite(output)
+        ? output
+        : undefined,
+  };
+}
+
+export function promptUsageEvent(
+  usage: { promptTokens: number; completionTokens?: number },
+  model: string,
+): EventData {
+  return {
+    type: "custom",
+    event_type: PROMPT_USAGE_EVENT_TYPE,
+    payload: {
+      promptTokens: usage.promptTokens,
+      completionTokens: usage.completionTokens,
+      model,
+    },
+  };
+}
+
+async function completeModelRound(
+  runtime: ResponsesRuntimeLike,
+  context: TurnContext,
+  request: NativeResponsesRequest,
+  turnParent: TraceParent,
+  round: number,
+) {
+  return context.streaming
+    ? runtime.completeStream(
+        request,
+        {
+          onFirstChunk: (ttftMs) => context.stream.firstChunk(ttftMs),
+          onTextDelta: (text) => context.stream.text(text),
+        },
+        {
+          parent: turnParent,
+          roundIndex: round,
+        },
+      )
+    : runtime.complete(request, {
+        parent: turnParent,
+        roundIndex: round,
+      });
+}
+
+async function summarizeViaRuntime(
+  runtime: ResponsesRuntimeLike,
+  model: string,
+  prompt: string,
+  turnParent: TraceParent,
+  round: number,
+): Promise<string> {
+  const response = await runtime.complete(
+    {
+      model,
+      messages: [{ role: "user", content: prompt }],
+      maxOutputTokens: 8_000,
+    },
+    {
+      parent: turnParent,
+      roundIndex: round,
+    },
+  );
+  return extractAssistantTextFromEvents(responseToLinguaEvents(response));
 }

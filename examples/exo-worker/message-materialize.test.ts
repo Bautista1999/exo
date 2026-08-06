@@ -4,6 +4,12 @@ import { toolResultMessage, type Event, type Message } from "@exo/harness";
 import { linguaMessagesToResponsesInput } from "@exo/model-runtime/responses";
 
 import {
+  HISTORY_TOOL_RESULT_CHAR_CAP,
+  LATEST_TOOL_RESULT_CHAR_CAP,
+  MAX_VISION_IMAGES_PER_ROUND,
+  budgetVisionImages,
+  capToolOutputForPrompt,
+  estimateDecodedImageBytes,
   hydrateToolResultsForVision,
   materializeExoWorkerEventsToMessages,
   repairLinguaToolPairing,
@@ -217,6 +223,87 @@ describe("repairLinguaToolPairing", () => {
   });
 });
 
+describe("budgetVisionImages", () => {
+  it("omits images over the decoded byte budget", () => {
+    const huge = "A".repeat(2_000_000); // ~1.5MB decoded
+    const decisions = budgetVisionImages(
+      [
+        {
+          toolName: "screenshotUrl",
+          base64: huge,
+          mediaType: "image/png",
+        },
+      ],
+      { maxBytes: 100_000 },
+    );
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.action).toBe("omit");
+    expect(estimateDecodedImageBytes(huge)).toBeGreaterThan(100_000);
+  });
+
+  it("caps the number of attaches per round", () => {
+    const small = Buffer.from("tiny-png").toString("base64");
+    const images = Array.from(
+      { length: MAX_VISION_IMAGES_PER_ROUND + 2 },
+      (_, i) => ({
+        toolName: "previewPresentation",
+        base64: small,
+        mediaType: "image/png",
+        label: `slide ${i + 1}`,
+      }),
+    );
+    const decisions = budgetVisionImages(images);
+    const attached = decisions.filter((d) => d.action === "attach");
+    const omitted = decisions.filter((d) => d.action === "omit");
+    expect(attached).toHaveLength(MAX_VISION_IMAGES_PER_ROUND);
+    expect(omitted).toHaveLength(2);
+  });
+});
+
+describe("capToolOutputForPrompt", () => {
+  it("returns the original value when under the cap", () => {
+    const output = { ok: true, value: { stdout: "hello" } };
+    expect(capToolOutputForPrompt(output, 1_000)).toBe(output);
+  });
+
+  it("keeps head and tail when over the cap", () => {
+    // Spaces/punctuation so this is not mistaken for base64 by vision strip.
+    const body = "alpha line with spaces!\n".repeat(3_000);
+    const capped = capToolOutputForPrompt(
+      { ok: true, value: { stdout: body } },
+      32_000,
+      { keepHead: 24_000, keepTail: 4_000 },
+    ) as {
+      truncated?: boolean;
+      originalChars?: number;
+      preview?: string;
+    };
+
+    expect(capped.truncated).toBe(true);
+    expect(capped.originalChars).toBeGreaterThan(32_000);
+    expect(capped.preview).toContain("alpha line with spaces!");
+    expect(capped.preview).toContain("chars truncated");
+    expect(capped.preview!.length).toBeLessThanOrEqual(32_000);
+    expect(JSON.stringify(capped).length).toBeLessThan(
+      LATEST_TOOL_RESULT_CHAR_CAP + 200,
+    );
+  });
+
+  it("uses a tighter history budget", () => {
+    const body = "beta line with spaces!\n".repeat(1_500);
+    const capped = capToolOutputForPrompt(body, HISTORY_TOOL_RESULT_CHAR_CAP, {
+      keepHead: 3_000,
+      keepTail: 500,
+    }) as { truncated?: boolean; preview?: string; originalChars?: number };
+
+    expect(capped.truncated).toBe(true);
+    expect(capped.originalChars).toBe(body.length);
+    expect(capped.preview!.length).toBeLessThanOrEqual(
+      HISTORY_TOOL_RESULT_CHAR_CAP,
+    );
+  });
+});
+
 describe("hydrateToolResultsForVision", () => {
   // Distinct JPEG-shaped payloads so we can assert they never reappear as text.
   const fakeJpegA =
@@ -384,6 +471,89 @@ describe("hydrateToolResultsForVision", () => {
           m.content.some((p) => (p as { type?: string }).type === "image"),
       ),
     ).toBe(false);
+  });
+
+  it("caps oversized latest tool results and tighter-caps historical ones", async () => {
+    const conversation = {
+      async readArtifactText() {
+        return null;
+      },
+    };
+
+    // Must not look like base64 — stripAllImagePayloads runs before the cap.
+    const hugeStdout = "shell dump line with spaces and punctuation!\n".repeat(
+      2_500,
+    );
+    const trailingOnly: Message[] = [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_call",
+            tool_call_id: "shell_huge",
+            tool_name: "shell",
+            arguments: { command: "cat big.txt" },
+          },
+        ],
+      },
+      toolResultMessage("shell_huge", "shell", {
+        ok: true,
+        value: { stdout: hugeStdout, stderr: "", exitCode: 0 },
+      }),
+    ];
+
+    const latestHydrated = await hydrateToolResultsForVision(
+      conversation as never,
+      trailingOnly,
+    );
+    const latestOut = (
+      latestHydrated.find((m) => m.role === "tool")!.content as Array<{
+        output?: { truncated?: boolean; preview?: string };
+      }>
+    )[0]?.output;
+    expect(latestOut?.truncated).toBe(true);
+    expect(JSON.stringify(latestOut).length).toBeLessThan(
+      LATEST_TOOL_RESULT_CHAR_CAP + 400,
+    );
+    expect(latestOut?.preview).toContain("chars truncated");
+
+    const afterReply: Message[] = [
+      ...trailingOnly,
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "Got it." }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_call",
+            tool_call_id: "shell_next",
+            tool_name: "shell",
+            arguments: { command: "echo hi" },
+          },
+        ],
+      },
+      toolResultMessage("shell_next", "shell", {
+        ok: true,
+        value: { stdout: "hi\n", stderr: "", exitCode: 0 },
+      }),
+    ];
+
+    const historyHydrated = await hydrateToolResultsForVision(
+      conversation as never,
+      afterReply,
+    );
+    const historyTool = historyHydrated.find((m) => m.role === "tool")!;
+    const historyOut = (
+      historyTool.content as Array<{
+        output?: { truncated?: boolean; preview?: string };
+      }>
+    )[0]?.output;
+    expect(historyOut?.truncated).toBe(true);
+    expect(JSON.stringify(historyOut).length).toBeLessThan(
+      HISTORY_TOOL_RESULT_CHAR_CAP + 400,
+    );
   });
 });
 
