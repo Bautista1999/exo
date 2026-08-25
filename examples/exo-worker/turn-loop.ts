@@ -52,9 +52,21 @@ import {
   isTaskTreeFinished,
   readTaskTreeSnapshot,
 } from "./tools/task-tree-snapshot.js";
+import {
+  extractProviderUsage,
+  promptUsageEvent,
+  providerUsageEvent,
+  type ProviderUsage,
+} from "./provider-usage.js";
 
-/** Custom event type for provider prompt usage (host may mirror to its UI). */
-export const PROMPT_USAGE_EVENT_TYPE = "exo_worker.prompt_usage";
+export {
+  extractProviderUsage,
+  PROMPT_USAGE_EVENT_TYPE,
+  PROVIDER_USAGE_EVENT_TYPE,
+  promptUsageEvent,
+  providerUsageEvent,
+} from "./provider-usage.js";
+export type { ProviderUsage } from "./provider-usage.js";
 
 export interface ExoWorkerTurnLoopOptions {
   instructions?: (context: TurnContext) => Message[] | Promise<Message[]>;
@@ -198,8 +210,21 @@ async function runExoWorkerTurnLoop(
 
     const maxOutputTokens =
       context.agentConfig.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
-    const summarize = (prompt: string) =>
-      summarizeViaRuntime(runtime, model, prompt, turnParent, round);
+    const summarize = async (prompt: string) => {
+      const { text, usage } = await summarizeViaRuntime(
+        runtime,
+        model,
+        prompt,
+        turnParent,
+        round,
+      );
+      if (usage) {
+        latestEventId = await appendTurnEvents(context, [
+          providerUsageEvent(usage, model, "compression"),
+        ]);
+      }
+      return text;
+    };
     const persistMarker = async (marker: Message) => {
       latestEventId = await appendTurnEvents(context, [
         messagesEvent([marker]),
@@ -366,41 +391,6 @@ async function appendTurnEvents(
   return (await context.exoharness.current.turn.addEvents(data)).latestEventId;
 }
 
-export function extractProviderUsage(response: {
-  usage?: {
-    input_tokens?: number | null;
-    output_tokens?: number | null;
-  } | null;
-}): { promptTokens: number; completionTokens?: number } | null {
-  const input = response.usage?.input_tokens;
-  if (typeof input !== "number" || !Number.isFinite(input) || input < 0) {
-    return null;
-  }
-  const output = response.usage?.output_tokens;
-  return {
-    promptTokens: input,
-    completionTokens:
-      typeof output === "number" && Number.isFinite(output)
-        ? output
-        : undefined,
-  };
-}
-
-export function promptUsageEvent(
-  usage: { promptTokens: number; completionTokens?: number },
-  model: string,
-): EventData {
-  return {
-    type: "custom",
-    event_type: PROMPT_USAGE_EVENT_TYPE,
-    payload: {
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      model,
-    },
-  };
-}
-
 async function completeModelRound(
   runtime: ResponsesRuntimeLike,
   context: TurnContext,
@@ -432,7 +422,7 @@ async function summarizeViaRuntime(
   prompt: string,
   turnParent: TraceParent,
   round: number,
-): Promise<string> {
+): Promise<{ text: string; usage: ProviderUsage | null }> {
   const response = await runtime.complete(
     {
       model,
@@ -444,5 +434,8 @@ async function summarizeViaRuntime(
       roundIndex: round,
     },
   );
-  return extractAssistantTextFromEvents(responseToLinguaEvents(response));
+  return {
+    text: extractAssistantTextFromEvents(responseToLinguaEvents(response)),
+    usage: extractProviderUsage(response),
+  };
 }
