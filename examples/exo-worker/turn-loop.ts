@@ -27,6 +27,7 @@ import { ensureTable } from "@exo/model-runtime/cost";
 import {
   compressMessagesIfNeeded,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  stripVisionImageParts,
 } from "./context-compress.js";
 import {
   isContextWindowError,
@@ -263,7 +264,15 @@ async function runExoWorkerTurnLoop(
       if (!forced.compressed) {
         throw err;
       }
-      messages = forced.messages;
+      // Force-compress alone is not enough when kept recent turns still hold
+      // large vision PNGs (providers bill those far above our image estimate).
+      const visionStripped = stripVisionImageParts(forced.messages);
+      if (visionStripped.strippedCount > 0) {
+        console.warn(
+          `[exo-worker] stripped ${visionStripped.strippedCount} vision image(s) before context-window retry`,
+        );
+      }
+      messages = visionStripped.messages;
       response = await completeModelRound(
         runtime,
         context,
