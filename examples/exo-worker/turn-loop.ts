@@ -286,16 +286,17 @@ async function runExoWorkerTurnLoop(
             }
           : { thresholdTokens: 0 },
       });
-      if (!forced.compressed) {
-        throw err;
-      }
-      // Force-compress alone is not enough when kept recent turns still hold
-      // large vision PNGs (providers bill those far above our image estimate).
+      // Always strip vision before deciding to give up. Short histories and
+      // summarizer failures return compressed:false, but a few large PNGs in
+      // kept recent turns are often the actual overflow.
       const visionStripped = stripVisionImageParts(forced.messages);
       if (visionStripped.strippedCount > 0) {
         console.warn(
           `[exo-worker] stripped ${visionStripped.strippedCount} vision image(s) before context-window retry`,
         );
+      }
+      if (!forced.compressed && visionStripped.strippedCount === 0) {
+        throw err;
       }
       messages = visionStripped.messages;
       response = await completeModelRound(
