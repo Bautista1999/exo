@@ -68,6 +68,9 @@ export {
 } from "./provider-usage.js";
 export type { ProviderUsage } from "./provider-usage.js";
 
+/** Custom event type for provider prompt usage (host may mirror to its UI). */
+export const PROMPT_USAGE_EVENT_TYPE = "exo_worker.prompt_usage";
+
 export interface ExoWorkerTurnLoopOptions {
   instructions?: (context: TurnContext) => Message[] | Promise<Message[]>;
   registerTools?: (
