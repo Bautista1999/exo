@@ -1,7 +1,7 @@
 # ExoWorker Self Map
 
 ExoWorker is an autonomous exo harness example: plan work as a task tree,
-execute in sandboxes and adapters, and report deliverables. In a normal local
+execute in sandboxes, and report deliverables. In a normal local
 startup, the repository is mounted in the sandbox at:
 
 ```text
@@ -18,16 +18,11 @@ Use this map before changing ExoWorker itself.
 - `examples/exo-worker/prompts/me.md`: durable identity and operating rules.
 - `examples/exo-worker/tools/memory-tools.ts`: agent-scoped `remember` / `forget` (artifact `memory/exo-worker-memory.json`).
 - `examples/exo-worker/tools/task-tree-tools.ts`: task tree tools + `bridgeEvent` payloads in tool results.
-- `examples/exo-worker/tools/introspection-tools.ts`: adapter and conversation introspection.
+- `examples/exo-worker/tools/introspection-tools.ts`: conversation event introspection.
 - `examples/exo-worker/tools/sandbox-tools.ts`: sandbox snapshot and rewind tools.
 - `examples/exo-worker/tools/scheduler-tools.ts`: scheduled task tools (optional via `EXO_WORKER_ENABLE_SCHEDULER`).
 - `examples/exo-worker/tools/fal/fal-tools.ts`: `fal_generate_image` (optional via `EXO_WORKER_ENABLE_FAL`; needs `FAL_KEY`).
 - `exoharness/typescript/harness/skill-tools.ts`: `install_skill` / `use_skill` / `list_skills` / `uninstall_skill` (agent artifacts).
-- `exoharness/typescript/harness/adapter-tools.ts`: model-visible adapter tools (`create_adapter`, …).
-- `exo/adapters/`: shipped library adapter workers — ExoWorker reuses these via `registerAdapterTools` (no local copy).
-- `exo/docs/design/adapter-architecture.md` / `docs/SELF-CONTROL.md`: shared adapter and self-control docs.
-- `exo/scripts/exo-service-guardian` / `exo/scheduler-runner/`: host service helpers shared with canonical Exo.
-- `crates/executor/src/adapter/`: Rust adapter runtime and supervision.
 
 ## Self-evolution (rung 1)
 

@@ -6,7 +6,6 @@ import {
   registerBuiltInTools,
   registerAgentToolsFromDirectoryIfExists,
   registerLibraryToolModulePath,
-  registerAdapterTools,
   registerSkillTools,
   skillsInstruction,
   type BuiltInToolName,
@@ -54,10 +53,6 @@ async function registerExoWorkerTools(
 ): Promise<void> {
   registerBuiltInTools(tools, context, builtInToolNames(context));
   registerTaskTreeTools(tools);
-  // Reuse Exo's shipped adapters (exo/adapters). create_adapter with
-  // source "library" resolves workers from that tree via ExoToolRuntime — this
-  // example intentionally does not duplicate Discord/IRC/WhatsApp/Signal/Slack.
-  registerAdapterTools(tools);
   registerIntrospectionTools(tools);
   registerSandboxTools(tools);
   registerMemoryTools(tools);
@@ -113,7 +108,7 @@ async function exoWorkerInstructions(context: TurnContext): Promise<Message[]> {
     {
       role: "developer",
       content:
-        "You have full autonomy to plan and execute work. Maintain a task tree throughout the job using task_tree_init, task_tree_upsert_node, and task_tree_update_status. Depth 1 = objectives, depth 2 = sub-objectives, depth 3 = TODO leaves (isLeaf true). Update node status as you work: pending → in_progress → completed/failed. Report client outputs with report_deliverable: for PPTX/PDF/files use type=file with the sandbox path as url (the host may upload and deliver the file); for sites/repos use type=url with https. Never send desktop/VNC stream URLs to the client. Fix recoverable sandbox/tool errors with shell or other registered command tools — do not call complete_task with status failed for fixable issues. When all TODO leaves are completed and deliverables are reported, call complete_task once. You may create external adapters (Slack, WhatsApp, Signal, Discord, IRC) with create_adapter and reply with send_adapter_message; do not auto-send model text externally.",
+        "You have full autonomy to plan and execute work. Maintain a task tree throughout the job using task_tree_init, task_tree_upsert_node, and task_tree_update_status. Depth 1 = objectives, depth 2 = sub-objectives, depth 3 = TODO leaves (isLeaf true). Update node status as you work: pending → in_progress → completed/failed. Report client outputs with report_deliverable: for PPTX/PDF/files use type=file with the sandbox path as url (the host may upload and deliver the file); for sites/repos use type=url with https. Never send desktop/VNC stream URLs to the client. Fix recoverable sandbox/tool errors with shell or other registered command tools — do not call complete_task with status failed for fixable issues. When all TODO leaves are completed and deliverables are reported, call complete_task once.",
     },
     {
       role: "developer",
@@ -154,7 +149,7 @@ function toolLayerInstruction(context: TurnContext): Message {
   const layers = [
     "Tool layers (use the best match; all may be registered in the same turn):",
     "1. Host-injected tools — any modules registered on the agent via toolModulePaths (sandboxes, HTTP clients, platform catalog tools, etc.). Prefer these when they cover the job.",
-    "2. ExoWorker substrate — task_tree_*, report_deliverable, complete_task, adapters, sandbox/introspection, remember/forget, install_skill/use_skill.",
+    "2. ExoWorker substrate — task_tree_*, report_deliverable, complete_task, sandbox/introspection, remember/forget, install_skill/use_skill.",
   ];
   if (context.agentConfig.enableAgentToolCreation) {
     layers.push(

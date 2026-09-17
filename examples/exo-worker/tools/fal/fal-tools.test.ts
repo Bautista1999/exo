@@ -158,7 +158,7 @@ describe("generateFalImage", () => {
           height: 1024,
         },
       ],
-      note: "Use images[0].sandboxPath as a send_adapter_message attachment sandboxPath to post this image externally. Set attachToConversation=true only when you need the first image attached back into the model context.",
+      note: "Use images[0].sandboxPath when reporting or delivering the image. Set attachToConversation=true only when you need the first image attached back into the model context.",
     });
   });
 
@@ -221,7 +221,7 @@ describe("generateFalImage", () => {
           height: 1024,
         },
       ],
-      note: "Use images[0].sandboxPath as a send_adapter_message attachment sandboxPath to post this image externally. Set attachToConversation=true only when you need the first image attached back into the model context.",
+      note: "Use images[0].sandboxPath when reporting or delivering the image. Set attachToConversation=true only when you need the first image attached back into the model context.",
       media: [
         {
           type: "image",

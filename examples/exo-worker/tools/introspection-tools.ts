@@ -2,54 +2,10 @@ import type { HarnessToolRegistry } from "@exo/harness";
 
 import { registerHostTool } from "./host-tools";
 
-// Read-only introspection over the agent's own history: adapter telemetry
-// from the AdapterStore and the canonical exoharness conversation event log
-// (which host components also write to, e.g. host_reboot when the service
-// guardian restarts the adapter runner). These let ExoWorker diagnose a quiet
-// or failing adapter, and reconstruct what happened to it (reboots, drains,
-// errors) without parsing .exo files.
+// Read-only introspection over the agent's canonical exoharness event log.
 export function registerIntrospectionTools(
   registry: HarnessToolRegistry,
 ): void {
-  registerHostTool(registry, {
-    name: "list_adapter_events",
-    description:
-      "List recent telemetry events for one adapter in this conversation, newest first: connected, disconnected, inbound, outbound, error, and lifecycle records. Use this to diagnose an adapter that seems quiet or unhealthy, after checking last_connected_at_ms and last_error from list_adapters. Read-only.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        adapterId: {
-          type: "string",
-          description: "Adapter id from list_adapters.",
-        },
-        eventType: {
-          type: ["string", "null"],
-          enum: [
-            "connected",
-            "disconnected",
-            "inbound",
-            "outbound",
-            "error",
-            "lifecycle",
-            null,
-          ],
-          description: "Only return events of this type. Null for all types.",
-        },
-        sinceMs: {
-          type: ["number", "null"],
-          description:
-            "Only return events created at or after this unix epoch milliseconds timestamp. Null for no lower bound.",
-        },
-        limit: {
-          type: ["number", "null"],
-          description:
-            "Maximum events to return (default 50, capped at 200). Null for the default.",
-        },
-      },
-      required: ["adapterId", "eventType", "sinceMs", "limit"],
-    },
-  });
   registerHostTool(registry, {
     name: "list_conversation_events",
     description:

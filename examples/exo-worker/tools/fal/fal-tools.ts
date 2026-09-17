@@ -59,7 +59,7 @@ export function registerFalTools(registry: HarnessToolRegistry): void {
     definition: {
       name: "fal_generate_image",
       description:
-        "Generate images with Fal Ideogram 4.0 (`ideogram/v4`). Requires FAL_KEY in the host environment. Returns locally cached sandbox paths that can be passed directly to send_adapter_message attachments (kind=image, sandboxPath=...). By default this does not attach image bytes into the conversation; set attachToConversation=true only when you need to inspect the first image visually in the next model round.",
+        "Generate images with Fal Ideogram 4.0 (`ideogram/v4`). Requires FAL_KEY in the host environment. Returns locally cached sandbox paths for reporting or delivery. By default this does not attach image bytes into the conversation; set attachToConversation=true only when you need to inspect the first image visually in the next model round.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -221,7 +221,7 @@ export async function generateFalImage(
         ? (response as { seed: number }).seed
         : null,
     images: resultImages,
-    note: "Use images[0].sandboxPath as a send_adapter_message attachment sandboxPath to post this image externally. Set attachToConversation=true only when you need the first image attached back into the model context.",
+    note: "Use images[0].sandboxPath when reporting or delivering the image. Set attachToConversation=true only when you need the first image attached back into the model context.",
   };
 
   const fetchImage = options.fetchImage ?? cacheFalImage;
