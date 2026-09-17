@@ -24,6 +24,7 @@ import {
   learnContextWindowTokens,
   parseContextWindowFromError,
   resolveContextWindowTokens,
+  shouldUseXaiResponsesApi,
 } from "./context-window.js";
 
 function bigUser(n: number, text = "work step"): Message {
@@ -85,6 +86,18 @@ describe("context-window", () => {
     );
     expect(isContextWindowError(err)).toBe(true);
     expect(parseContextWindowFromError(err)).toBe(500_000);
+  });
+
+  it("uses Responses API only for direct xAI Grok bindings", () => {
+    expect(shouldUseXaiResponsesApi("grok-4.6", "https://api.x.ai/v1")).toBe(
+      true,
+    );
+    expect(
+      shouldUseXaiResponsesApi("x-ai/grok-4.6", "https://openrouter.ai/api/v1"),
+    ).toBe(false);
+    expect(
+      shouldUseXaiResponsesApi("claude-sonnet-5", "https://api.x.ai/v1"),
+    ).toBe(false);
   });
 });
 

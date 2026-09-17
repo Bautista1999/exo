@@ -17,6 +17,7 @@ import {
   modelRequiresResponsesApi,
   responseToLinguaEvents,
   responseToolCalls,
+  ResponsesRuntime,
   runtimeFromModelBinding,
   type NativeResponsesRequest,
   type ResponsesRuntimeLike,
@@ -33,6 +34,7 @@ import {
   isContextWindowError,
   learnContextWindowTokens,
   parseContextWindowFromError,
+  shouldUseXaiResponsesApi,
 } from "./context-window.js";
 import {
   materializeExoWorkerPromptMessages,
@@ -82,10 +84,17 @@ export async function runExoWorkerHarnessTurn(
 ): Promise<void> {
   await ensureTable();
   const modelBinding = await resolveLlmBinding(context);
-  const runtime = runtimeFromModelBinding(context.agentConfig, modelBinding);
+  const useXaiResponses = shouldUseXaiResponsesApi(
+    modelBinding.model,
+    modelBinding.baseUrl,
+  );
+  const runtime = useXaiResponses
+    ? ResponsesRuntime.fromModelBinding(context.agentConfig, modelBinding)
+    : runtimeFromModelBinding(context.agentConfig, modelBinding);
   const usesResponsesApi =
-    modelRequiresResponsesApi(modelBinding.model) &&
-    !isOpenRouterBinding(modelBinding);
+    useXaiResponses ||
+    (modelRequiresResponsesApi(modelBinding.model) &&
+      !isOpenRouterBinding(modelBinding));
   await runtime.runTurn(context, (turnParent) =>
     runExoWorkerTurnLoop(
       runtime,

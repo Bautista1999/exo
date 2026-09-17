@@ -62,6 +62,24 @@ export function stripModelProviderPrefix(model: string): string {
   return idx >= 0 ? model.slice(idx + 1) : model;
 }
 
+/** Direct xAI Grok bindings support native multimodal input via Responses API. */
+export function shouldUseXaiResponsesApi(
+  model: string,
+  baseUrl: string | null | undefined,
+): boolean {
+  if (
+    !stripModelProviderPrefix(model).trim().toLowerCase().startsWith("grok-")
+  ) {
+    return false;
+  }
+  if (!baseUrl) return false;
+  try {
+    return new URL(baseUrl).hostname.toLowerCase() === "api.x.ai";
+  } catch {
+    return false;
+  }
+}
+
 export function resolveContextWindowTokens(model: string): number {
   const id = stripModelProviderPrefix(model).trim().toLowerCase();
   if (!id) return DEFAULT_CONTEXT_WINDOW_TOKENS;
