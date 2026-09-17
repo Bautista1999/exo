@@ -102,6 +102,7 @@ export async function runExoWorkerHarnessTurn(
       turnParent,
       modelBinding.model,
       usesResponsesApi,
+      useXaiResponses,
       options,
     ),
   );
@@ -143,6 +144,7 @@ async function runExoWorkerTurnLoop(
   turnParent: TraceParent,
   model: string,
   usesResponsesApi: boolean,
+  omitRequestMetadata: boolean,
   options: ExoWorkerTurnLoopOptions,
 ): Promise<string | null> {
   const { conversation } = context.exoharness.current;
@@ -254,7 +256,7 @@ async function runExoWorkerTurnLoop(
       messages,
       tools: tools.definitions(),
       maxOutputTokens: context.agentConfig.maxOutputTokens,
-      metadata: turnMetadata(context),
+      metadata: omitRequestMetadata ? undefined : turnMetadata(context),
     };
 
     let response;
